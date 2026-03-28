@@ -1,11 +1,9 @@
 version: "1"
 name: __SCENARIO_NAME__ Significant Event Notification
 description: >
-  Notify launch operations team when a significant event is detected.
-  Triggered by alert rules — uses event.rule.tags[1] for the error_type
-  search, extracts user_email from event_name, sends email notification
-  immediately, then runs AI root cause analysis and creates a case with
-  RCA findings.
+  Triggered by alert rules when a significant event is detected.
+  Queries recent errors, runs AI root cause analysis with auto-remediation,
+  and creates a Kibana case with RCA + remediation findings.
 
 triggers:
   - type: alert
@@ -18,6 +16,7 @@ steps:
         FROM logs.otel,logs.otel.* | WHERE KQL("body.text: \"{{ event.rule.tags[1] }}\" AND severity_text: \"ERROR\"") | KEEP event_name
       format: json
 
+
   - name: count_errors
     type: elasticsearch.esql.query
     with:
@@ -26,30 +25,6 @@ steps:
         | WHERE @timestamp > NOW() - 15 MINUTES AND severity_text == "ERROR"
         | STATS total_errors = COUNT(*)
       format: json
-
-  - name: parse_event_meta
-    type: data.set
-    with:
-      var:
-        - event_meta: "${{ steps.enrich_context.output.values[1][0] | json_parse }}"
-
-  - name: send_notification
-    type: email
-    connector-id: Elastic-Cloud-SMTP
-    with:
-      to:
-        - "{{ steps.parse_event_meta.output.var[0].event_meta.user_email }}"
-      subject: "__SCENARIO_NAME__ Alert: {{ event.rule.name }}"
-      message: >
-        Significant event detected in __SCENARIO_NAME__ mission:
-
-        Rule: {{ event.rule.name }}
-        Error Type: {{ event.rule.tags[1] }}
-        Total errors (15m): {{ steps.count_errors.output.values[0][0] }}
-
-        An AI root cause analysis is underway — a case with detailed findings will be created shortly.
-
-        Open Kibana to investigate and request remediation.
 
   - name: run_rca
     type: ai.agent
@@ -60,16 +35,21 @@ steps:
         Significant event detected: {{ event.rule.name }}.
         Error type: {{ event.rule.tags[1] }}.
         Total errors in last 15 minutes: {{ steps.count_errors.output.values[0][0] }}.
-        Perform a root cause analysis only. Search logs for this error type,
-        identify affected services, trace the fault propagation, and provide
-        your structured RCA report. Do NOT execute any remediation actions.
+        Step 1 — Search logs for this error type, identify affected services,
+        trace the fault propagation, and produce a structured RCA report.
+        Step 2 — Once your RCA is complete, immediately execute the appropriate
+        remediation action using the remediation_action tool. Look up the correct
+        action_type from the knowledge base for this error type and channel, then
+        call remediation_action with that action_type, the affected channel number,
+        and dry_run set to false. Report what remediation was executed and confirm
+        the fault is resolved.
 
   - name: create_case
     type: kibana.createCaseDefaultSpace
     with:
-      title: "__SCENARIO_NAME__ RCA: {{ event.rule.name }}"
+      title: "__SCENARIO_NAME__ RCA + Remediation: {{ event.rule.name }}"
       description: |
-       [View Full Conversation]({{ kibanaUrl }}/app/agent_builder/conversations/{{ steps.run_rca.output.conversation_id }})
+       [View Full Conversation](/app/agent_builder/conversations/{{ steps.run_rca.output.conversation_id }})
 
        {{ steps.run_rca.output.message }}
       tags:
@@ -93,6 +73,6 @@ steps:
         rule_name: "{{ event.rule.name }}"
         error_type: "{{ event.rule.tags[1] }}"
         total_errors: "{{ steps.count_errors.output.values[0][0] }}"
-        rca_case_created: true
+        rca_and_remediation_case_created: true
         mission_id: "__SCENARIO_NAME__"
       refresh: wait_for

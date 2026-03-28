@@ -536,6 +536,55 @@ class ScenarioDeployer:
 
     # ── Workflows ──────────────────────────────────────────────────────
 
+    def _list_workflows(self, client: httpx.Client) -> list[dict]:
+        """Fetch all workflows, trying the new GA REST endpoint first and falling
+        back to the legacy search endpoint for pre-9.4 serverless builds.
+
+        New API (Kibana ≥9.4 / serverless post-2026-03):
+          GET /api/workflows?page=1&size=100  →  {"data": [...], "total": N}
+          (or top-level list, or {"results": [...]})
+
+        Legacy API:
+          POST /api/workflows/search  {"page": 1, "size": 100}
+          →  {"results": [...], "total": N}
+        """
+        # ── Try new GET endpoint first ──────────────────────────────────
+        try:
+            resp = client.get(
+                f"{self.kibana_url}/api/workflows",
+                headers=_kibana_headers(self.api_key),
+                params={"page": 1, "size": 100},
+            )
+            if resp.status_code < 300:
+                data = resp.json()
+                if isinstance(data, list):
+                    return data
+                for key in ("data", "results", "items", "workflows"):
+                    if key in data and isinstance(data[key], list):
+                        return data[key]
+                # Fallthrough: unexpected shape — proceed to legacy API
+        except Exception:
+            pass
+
+        # ── Fall back to legacy POST search endpoint ────────────────────
+        try:
+            resp = client.post(
+                f"{self.kibana_url}/api/workflows/search",
+                headers=_kibana_headers(self.api_key),
+                json={"page": 1, "size": 100},
+            )
+            if resp.status_code < 300:
+                data = resp.json()
+                if isinstance(data, list):
+                    return data
+                for key in ("results", "data", "items", "workflows"):
+                    if key in data and isinstance(data[key], list):
+                        return data[key]
+        except Exception:
+            pass
+
+        return []
+
     def _deploy_workflows(self, client: httpx.Client, notify: ProgressCallback):
         step = self._step(4)
         step.status = "running"
@@ -1168,6 +1217,7 @@ When the user asks you to fix or remediate this issue, use remediation_action to
                 "index": {
                     "id": f"{self.ns}-se-ch{num_str}",
                     "title": f"Channel {num_str}: {ch_data['name']}",
+                    "description": f"{ch_data.get('subsystem', 'system')} — {error_type}",
                     "esql": {"query": esql_query},
                 }
             })
@@ -1316,22 +1366,11 @@ When the user asks you to fix or remediate this issue, use remediation_action to
                 break
 
         if not notification_wf_id:
-            # Search for it
-            resp = client.post(
-                f"{self.kibana_url}/api/workflows/search",
-                headers=_kibana_headers(self.api_key),
-                json={"page": 1, "size": 100},
-            )
-            if resp.status_code < 300:
-                try:
-                    data = resp.json()
-                    items = data if isinstance(data, list) else data.get("results", data.get("items", []))
-                    for item in items:
-                        if "Notification" in item.get("name", "") or "Significant" in item.get("name", ""):
-                            notification_wf_id = item["id"]
-                            break
-                except Exception:
-                    pass
+            # Search for it using the version-resilient helper
+            for item in self._list_workflows(client):
+                if "Notification" in item.get("name", "") or "Significant" in item.get("name", ""):
+                    notification_wf_id = item["id"]
+                    break
 
         if not notification_wf_id:
             step.status = "failed"
@@ -1517,26 +1556,18 @@ When the user asks you to fix or remediate this issue, use remediation_action to
 
         # Delete workflows matching ANY known scenario name
         try:
-            resp = client.post(
-                f"{self.kibana_url}/api/workflows/search",
-                headers=_kibana_headers(self.api_key),
-                json={"page": 1, "size": 100},
-            )
-            if resp.status_code < 300:
-                data = resp.json()
-                items = data if isinstance(data, list) else data.get("results", data.get("items", []))
-                for item in items:
-                    wf_name = item.get("name", "")
-                    for sn in all_scenario_names:
-                        if sn in wf_name:
-                            wf_id = item.get("id", "")
-                            if wf_id:
-                                client.delete(
-                                    f"{self.kibana_url}/api/workflows/{wf_id}",
-                                    headers=_kibana_headers(self.api_key),
-                                )
-                                deleted += 1
-                            break
+            for item in self._list_workflows(client):
+                wf_name = item.get("name", "")
+                for sn in all_scenario_names:
+                    if sn in wf_name:
+                        wf_id = item.get("id", "")
+                        if wf_id:
+                            client.delete(
+                                f"{self.kibana_url}/api/workflows/{wf_id}",
+                                headers=_kibana_headers(self.api_key),
+                            )
+                            deleted += 1
+                        break
         except Exception:
             pass
 
@@ -1663,25 +1694,17 @@ When the user asks you to fix or remediate this issue, use remediation_action to
         """Delete workflows matching this scenario's name."""
         deleted = 0
         try:
-            resp = client.post(
-                f"{self.kibana_url}/api/workflows/search",
-                headers=_kibana_headers(self.api_key),
-                json={"page": 1, "size": 100},
-            )
-            if resp.status_code < 300:
-                data = resp.json()
-                items = data if isinstance(data, list) else data.get("results", data.get("items", []))
-                scenario_name = self.scenario.scenario_name
-                for item in items:
-                    if scenario_name in item.get("name", "") or f"{self.ns}-" in item.get("name", "").lower():
-                        wf_id = item.get("id", "")
-                        if wf_id:
-                            r = client.delete(
-                                f"{self.kibana_url}/api/workflows/{wf_id}",
-                                headers=_kibana_headers(self.api_key),
-                            )
-                            if r.status_code < 300:
-                                deleted += 1
+            scenario_name = self.scenario.scenario_name
+            for item in self._list_workflows(client):
+                if scenario_name in item.get("name", "") or f"{self.ns}-" in item.get("name", "").lower():
+                    wf_id = item.get("id", "")
+                    if wf_id:
+                        r = client.delete(
+                            f"{self.kibana_url}/api/workflows/{wf_id}",
+                            headers=_kibana_headers(self.api_key),
+                        )
+                        if r.status_code < 300:
+                            deleted += 1
         except Exception:
             pass
         return deleted
