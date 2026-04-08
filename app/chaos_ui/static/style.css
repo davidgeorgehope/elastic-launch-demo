@@ -60,6 +60,12 @@ body {
     text-shadow: 0 0 10px rgba(255, 0, 0, 0.3);
 }
 
+.header-nav {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
 .nav-link {
     color: var(--text-secondary);
     text-decoration: none;

@@ -15,14 +15,14 @@ steps:
     type: elasticsearch.esql.query
     with:
       query: >
-        FROM logs,logs.* | WHERE KQL("body.text: \"{{ event.rule.tags[1] }}\" AND severity_text: \"ERROR\"") | KEEP event_name
+        FROM logs.otel,logs.otel.* | WHERE KQL("body.text: \"{{ event.rule.tags[1] }}\" AND severity_text: \"ERROR\"") | KEEP event_name
       format: json
 
   - name: count_errors
     type: elasticsearch.esql.query
     with:
       query: >
-        FROM logs,logs.*
+        FROM logs.otel,logs.otel.*
         | WHERE @timestamp > NOW() - 15 MINUTES AND severity_text == "ERROR"
         | STATS total_errors = COUNT(*)
       format: json
@@ -69,7 +69,7 @@ steps:
     with:
       title: "__SCENARIO_NAME__ RCA: {{ event.rule.name }}"
       description: |
-       [View Full Conversation]({{ kibanaUrl }}/app/agent_builder/conversations/{{ steps.run_rca.output.conversation_id }})
+       [View Full Conversation](/app/agent_builder/conversations/{{ steps.run_rca.output.conversation_id }})
 
        {{ steps.run_rca.output.message }}
       tags:

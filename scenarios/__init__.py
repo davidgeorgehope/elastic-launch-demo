@@ -31,6 +31,7 @@ def _discover() -> None:
         "scenarios.gaming.scenario",
         "scenarios.banking.scenario",
         "scenarios.gcp.scenario",
+        "scenarios.claro.scenario",
     ]
 
     for mod_path in _scenario_modules:

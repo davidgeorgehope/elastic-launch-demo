@@ -1070,7 +1070,7 @@ def _build_dashboard_ndjson(
         esql_where = 'severity_text == "ERROR"'
 
     esql_query = (
-        f"FROM logs,logs.* "
+        f"FROM logs.otel,logs.otel.* "
         f"| WHERE {esql_where} "
         f"| KEEP body.text, trace.id, span.id, service.name, @timestamp "
         f"| SORT @timestamp DESC "

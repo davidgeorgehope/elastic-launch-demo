@@ -712,7 +712,7 @@ try:
     streams = data if isinstance(data, list) else data.get('streams', data.get('results', data.get('data', [])))
     for s in streams:
         name = s.get('name', s) if isinstance(s, dict) else s
-        if name == 'logs':
+        if name in ('logs.otel', 'logs'):
             print(name); exit(0)
 except:
     pass
@@ -720,7 +720,7 @@ except:
 fi
 
 if [[ -z "$se_stream" ]]; then
-    se_stream="logs"
+    se_stream="logs.otel"
 fi
 
 se_response=$(kb_get "/api/streams/${se_stream}/queries")
