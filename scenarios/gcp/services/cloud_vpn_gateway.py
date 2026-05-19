@@ -26,7 +26,11 @@ class CloudVpnGatewayService(BaseService):
         # -- Tunnel status --
         tunnel = random.choice(self.TUNNELS)
         gateway = random.choice(self.GATEWAYS)
-        tunnel_status = "ESTABLISHED" if not active_channels else random.choice(["DOWN", "NEGOTIATING", "NO_INCOMING_PACKETS"])
+        tunnel_status = (
+            "ESTABLISHED"
+            if not active_channels
+            else random.choice(["DOWN", "NEGOTIATING", "NO_INCOMING_PACKETS"])
+        )
         peer_ip = f"203.0.113.{random.randint(1, 254)}"
 
         self.emit_log(
@@ -81,7 +85,9 @@ class CloudVpnGatewayService(BaseService):
         )
 
         # -- Packet stats --
-        packets_dropped = random.randint(0, 5) if not active_channels else random.randint(100, 2000)
+        packets_dropped = (
+            random.randint(0, 5) if not active_channels else random.randint(100, 2000)
+        )
         self.emit_metric("vpn.packets_dropped", float(packets_dropped), "packets")
         self.emit_log(
             "INFO",

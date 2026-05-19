@@ -36,17 +36,31 @@ class SettlementProcessorService(BaseService):
 
         # Metrics
         self._settlements_processed += 1
-        self.emit_metric("settlement.processed_count", float(self._settlements_processed), "settlements")
-        pending = random.randint(10, 200) if not active_channels else random.randint(200, 2000)
+        self.emit_metric(
+            "settlement.processed_count",
+            float(self._settlements_processed),
+            "settlements",
+        )
+        pending = (
+            random.randint(10, 200)
+            if not active_channels
+            else random.randint(200, 2000)
+        )
         self.emit_metric("settlement.pending_count", float(pending), "settlements")
         self.emit_metric(
             "settlement.fail_rate",
-            round(random.uniform(0.1, 1.5), 2) if not active_channels else round(random.uniform(5.0, 20.0), 2),
+            (
+                round(random.uniform(0.1, 1.5), 2)
+                if not active_channels
+                else round(random.uniform(5.0, 20.0), 2)
+            ),
             "%",
         )
 
     def _emit_settlement_progress(self) -> None:
-        counterparty = random.choice(["Goldman Sachs", "Morgan Stanley", "JP Morgan", "Citadel"])
+        counterparty = random.choice(
+            ["Goldman Sachs", "Morgan Stanley", "JP Morgan", "Citadel"]
+        )
         instrument = random.choice(["US.AAPL", "US.GOOGL", "FUT.ES", "FX.EURUSD"])
         qty = random.randint(100, 10000)
         value = round(qty * random.uniform(50, 400), 2)

@@ -6,6 +6,7 @@ import random
 import time
 
 from app.services.base_service import BaseService
+from scenarios.healthcare.executive_kpis import emit_executive_business_metrics_if_eligible
 
 
 class BillingProcessorService(BaseService):
@@ -15,7 +16,14 @@ class BillingProcessorService(BaseService):
         super().__init__(chaos_controller, otlp_client)
         self._claims_processed = 0
         self._last_batch_report = time.time()
-        self._payers = ["BCBS-001", "AETNA-002", "UHC-003", "CIGNA-004", "MDCR-005", "MDCD-006"]
+        self._payers = [
+            "BCBS-001",
+            "AETNA-002",
+            "UHC-003",
+            "CIGNA-004",
+            "MDCR-005",
+            "MDCD-006",
+        ]
 
     def generate_telemetry(self) -> None:
         # -- Fault injection ------------------------------------
@@ -37,10 +45,20 @@ class BillingProcessorService(BaseService):
 
         # Metrics
         self._claims_processed += 1
-        self.emit_metric("billing.claims_processed", float(self._claims_processed), "claims")
-        denial_rate = round(random.uniform(2.0, 8.0), 1) if not active_channels else round(random.uniform(15.0, 40.0), 1)
+        self.emit_metric(
+            "billing.claims_processed", float(self._claims_processed), "claims"
+        )
+        denial_rate = (
+            round(random.uniform(2.0, 8.0), 1)
+            if not active_channels
+            else round(random.uniform(15.0, 40.0), 1)
+        )
         self.emit_metric("billing.denial_rate_pct", denial_rate, "%")
-        self.emit_metric("billing.avg_reimbursement_days", float(random.randint(14, 45)), "days")
+        self.emit_metric(
+            "billing.avg_reimbursement_days", float(random.randint(14, 45)), "days"
+        )
+
+        emit_executive_business_metrics_if_eligible(self)
 
     def _emit_claim_submission(self) -> None:
         claim_id = f"CLM-{random.randint(100000, 999999)}"

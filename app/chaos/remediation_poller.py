@@ -7,7 +7,6 @@ picks up pending docs, resolves the corresponding fault channel, and marks them 
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import threading
@@ -18,13 +17,12 @@ import httpx
 
 if TYPE_CHECKING:
     from app.chaos.controller import ChaosController
-    from app.dashboard.websocket import DashboardWebSocket
 
 logger = logging.getLogger("nova7.remediation_poller")
 
-POLL_ACTIVE = 15   # seconds between polls when faults are active
-POLL_IDLE = 30     # seconds between polls when no faults
-CLEANUP_AGE = 3600 # delete processed docs older than 1 hour
+POLL_ACTIVE = 15  # seconds between polls when faults are active
+POLL_IDLE = 30  # seconds between polls when no faults
+CLEANUP_AGE = 3600  # delete processed docs older than 1 hour
 
 
 class RemediationPoller:
@@ -37,14 +35,12 @@ class RemediationPoller:
         elastic_api_key: str,
         namespace: str,
         chaos_controller: ChaosController,
-        dashboard_ws: DashboardWebSocket,
         stop_event: threading.Event,
     ):
         self._elastic_url = elastic_url.rstrip("/")
         self._api_key = elastic_api_key
         self._namespace = namespace
         self._chaos = chaos_controller
-        self._ws = dashboard_ws
         self._stop = stop_event
         self._index = f"{namespace}-remediation-queue"
         self._thread: threading.Thread | None = None
@@ -156,7 +152,9 @@ class RemediationPoller:
         try:
             channel = int(channel_raw)
         except (TypeError, ValueError):
-            logger.warning("Invalid channel value in remediation doc %s: %r", doc_id, channel_raw)
+            logger.warning(
+                "Invalid channel value in remediation doc %s: %r", doc_id, channel_raw
+            )
             self._mark_processed(client, doc_id, error="invalid channel")
             return
 
@@ -165,7 +163,10 @@ class RemediationPoller:
             dry_run = dry_run.lower() not in ("false", "0", "no")
 
         if dry_run:
-            logger.info("Remediation doc %s is dry_run — marking processed without resolving", doc_id)
+            logger.info(
+                "Remediation doc %s is dry_run — marking processed without resolving",
+                doc_id,
+            )
             self._mark_processed(client, doc_id, dry_run=True)
             return
 
@@ -174,7 +175,8 @@ class RemediationPoller:
         if not self._chaos.is_active(channel):
             logger.info(
                 "Remediation doc %s targets channel %d which is not active — marking stale",
-                doc_id, channel,
+                doc_id,
+                channel,
             )
             self._mark_processed(client, doc_id, error="channel not active")
             return
@@ -182,7 +184,8 @@ class RemediationPoller:
         if channel in resolved_channels:
             logger.info(
                 "Remediation doc %s is duplicate for channel %d — already resolved this cycle",
-                doc_id, channel,
+                doc_id,
+                channel,
             )
             self._mark_processed(client, doc_id, error="duplicate")
             return
@@ -192,11 +195,10 @@ class RemediationPoller:
         resolved_channels.add(channel)
         logger.info(
             "Remediation poller resolved channel %d: %s (doc=%s)",
-            channel, status, doc_id,
+            channel,
+            status,
+            doc_id,
         )
-
-        # Broadcast via WebSocket so dashboard updates immediately
-        self._broadcast_resolve(channel, result)
 
         self._mark_processed(client, doc_id)
 
@@ -255,25 +257,3 @@ class RemediationPoller:
                         logger.info("Cleaned up %d old remediation docs", deleted)
         except Exception:
             logger.debug("Cleanup of processed remediation docs failed", exc_info=True)
-
-    def _broadcast_resolve(self, channel: int, result: dict[str, Any]) -> None:
-        """Send a chaos_resolved event via the dashboard WebSocket."""
-        msg = {
-            "type": "chaos_resolved",
-            "channel": channel,
-            "name": result.get("name", ""),
-            "source": "remediation_poller",
-        }
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                asyncio.ensure_future(self._ws.broadcast(msg))
-            else:
-                loop.run_until_complete(self._ws.broadcast(msg))
-        except RuntimeError:
-            # No event loop in this thread — create a temporary one
-            loop = asyncio.new_event_loop()
-            try:
-                loop.run_until_complete(self._ws.broadcast(msg))
-            finally:
-                loop.close()

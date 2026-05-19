@@ -20,6 +20,10 @@ class HealthcareScenario(BaseScenario):
         return "healthcare"
 
     @property
+    def scenario_icon(self) -> str:
+        return "🏥"
+
+    @property
     def scenario_name(self) -> str:
         return "Healthcare Systems"
 
@@ -34,6 +38,98 @@ class HealthcareScenario(BaseScenario):
     @property
     def namespace(self) -> str:
         return "healthcare"
+
+    @property
+    def sort_order(self) -> int:
+        return 4
+
+    @property
+    def raw_log_profile(self) -> dict[str, Any]:
+        return {
+            "service_name": "patient-portal-edge",
+            "user_id_prefix": "mem",
+            "tier_field": "plan_type",
+            "tier_values": [("hmo", 45), ("ppo", 35), ("medicare", 20)],
+            "country_weights": {"US": 95, "CA": 3, "MX": 2},
+            "methods": ["GET", "POST", "PUT", "DELETE"],
+            "paths": [
+                "/api/v1/patients/{id}", "/api/v1/appointments",
+                "/api/v1/orders/lab", "/api/v1/billing", "/api/v1/messages",
+                "/api/v1/prescriptions", "/login", "/health",
+            ],
+            "change_point_path": "/api/v1/orders/lab",
+        }
+
+    @property
+    def executive_kpi_emitter_service_name(self) -> str:
+        return "billing-processor"
+
+    @property
+    def executive_dashboard_intro(self) -> str:
+        return (
+            "**Hospital operations KPIs** — access & throughput, revenue cycle, clinical quality, "
+            "and EHR operations (synthetic `business.*` from `billing-processor`)."
+        )
+
+    @property
+    def executive_kpi_sections(self) -> list[dict]:
+        return [
+            {
+                "header": "**Access & throughput** — ED time, admits, discharges, bed, OR, and ICU",
+                "specs": [
+                    ("ED door-to-provider (min)", "metrics.business.ed_door_to_provider_min"),
+                    ("Admits / min", "metrics.business.admits_per_min"),
+                    ("Discharges / min", "metrics.business.discharges_per_min"),
+                    ("Bed occupancy (%)", "metrics.business.bed_occupancy_pct"),
+                    ("OR utilization (%)", "metrics.business.or_utilization_pct"),
+                    ("ICU capacity (%)", "metrics.business.icu_capacity_pct"),
+                ],
+            },
+            {
+                "header": "**Revenue cycle** — claims, clean rate, denials, AR days, and collections",
+                "specs": [
+                    ("Claims submitted / min", "metrics.business.claims_submitted_per_min"),
+                    ("Clean claim rate (%)", "metrics.business.clean_claim_rate_pct"),
+                    ("Denials / min", "metrics.business.denials_per_min"),
+                    ("AR days", "metrics.business.accounts_receivable_days"),
+                    ("Collections (USD/min)", "metrics.business.collections_usd_per_min"),
+                    ("Unbilled charges (USD/min)", "metrics.business.unbilled_charges_usd_per_min"),
+                ],
+            },
+            {
+                "header": "**Clinical quality** — order TAT, lab alerts, med reconciliation, and safety",
+                "specs": [
+                    ("Order turnaround (min)", "metrics.business.order_turnaround_min"),
+                    ("Lab critical notification (%)", "metrics.business.lab_critical_notification_pct"),
+                    ("Medication reconciliation (%)", "metrics.business.medication_reconciliation_rate_pct"),
+                    ("Patient safety events / min", "metrics.business.patient_safety_events_per_min"),
+                    ("HCAHPS proxy score", "metrics.business.hcahps_proxy_score"),
+                    ("Readmission risk (0–100)", "metrics.business.readmission_risk_index_0_100"),
+                ],
+            },
+            {
+                "header": "**Operations** — EHR response, HL7, imaging, no-shows, satisfaction, and compliance",
+                "specs": [
+                    ("EHR response time (ms)", "metrics.business.ehr_response_time_ms"),
+                    ("HL7 messages / min", "metrics.business.hl7_messages_per_min"),
+                    ("Imaging worklist size", "metrics.business.imaging_worklist_size"),
+                    ("Appointment no-show rate (%)", "metrics.business.appointment_no_show_rate_pct"),
+                    ("Patient satisfaction (NPS-like)", "metrics.business.patient_satisfaction_nps"),
+                    ("Staff compliance rate (%)", "metrics.business.staff_compliance_rate_pct"),
+                ],
+            },
+        ]
+
+    @property
+    def executive_trend_charts(self) -> list[dict]:
+        return [
+            {"title": "Admits / min", "field": "metrics.business.admits_per_min", "y_label": "admits/min"},
+            {"title": "Bed occupancy (%)", "field": "metrics.business.bed_occupancy_pct", "y_label": "%"},
+            {"title": "Collections (USD/min)", "field": "metrics.business.collections_usd_per_min", "y_label": "USD/min"},
+            {"title": "Clean claim rate (%)", "field": "metrics.business.clean_claim_rate_pct", "y_label": "%"},
+            {"title": "ED door-to-provider (min)", "field": "metrics.business.ed_door_to_provider_min", "y_label": "min"},
+            {"title": "EHR response time (ms)", "field": "metrics.business.ehr_response_time_ms", "y_label": "ms"},
+        ]
 
     # -- Services ---------------------------------------------------------------
 
@@ -226,42 +322,45 @@ class HealthcareScenario(BaseScenario):
                 ),
             },
             4: {
-                "name": "DICOM Transfer Failure",
-                "subsystem": "radiology",
-                "vehicle_section": "pacs_gateway",
-                "error_type": "DICOM-STORE-FAIL",
-                "sensor_type": "dicom_transfer",
-                "affected_services": ["imaging-service", "ehr-system"],
-                "cascade_services": ["clinical-alerts", "data-warehouse"],
-                "description": "DICOM C-STORE or C-MOVE operation fails during modality-to-PACS image transfer",
+                "name": "HIPAA Audit Log Integrity Error",
+                "subsystem": "analytics",
+                "vehicle_section": "audit_subsystem",
+                "error_type": "HIPAA-AUDIT-FAIL",
+                "sensor_type": "audit_log_integrity",
+                "affected_services": ["data-warehouse", "ehr-system"],
+                "cascade_services": ["clinical-alerts", "billing-processor"],
+                "description": "HIPAA-mandated audit log chain integrity check fails, indicating possible tampering or data loss",
                 "investigation_notes": (
-                    "Root Cause: DICOM association failures (status 0xA700/0xA900) indicate either AE title mismatch, transfer "
-                    "syntax negotiation failure, or storage commitment refusal. The PACS SCP rejects the C-STORE when the "
-                    "Presentation Context (Abstract Syntax + Transfer Syntax) is not in the accepted list.\n"
-                    "Remediation: 1) Verify the DICOM association: `dcm4che-tool storescu --called PACS-SCP-01 --calling {modality}-SCU "
-                    "--connect pacs-host:11112 --cecho`. 2) Reset the DICOM association: `pacs-admin reset-association --ae-title "
-                    "{modality}-SCU`. 3) Check the PACS gateway connection pool: `pacs-admin gateway-status`. "
-                    "4) If persistent, restart the PACS gateway service: `systemctl restart dcm4chee-arc`. "
-                    "5) Verify transfer syntax compatibility — ensure Explicit VR Little Endian (1.2.840.10008.1.2.1) is configured. "
-                    "6) For C-MOVE failures, verify the destination AE title is registered in the DICOM configuration."
+                    "Root Cause: HIPAA audit chain integrity failures (SHA-256 hash mismatches) indicate either log record "
+                    "tampering, storage corruption, or an out-of-order write during high-volume PHI access logging. Per 45 CFR "
+                    "164.312(b), audit controls must maintain an unbroken chain of custody for all PHI access events.\n"
+                    "Remediation: 1) Identify the break point: `audit-admin chain-verify --chain {chain_id} --from-sequence "
+                    "{sequence_number} --range 100`. 2) Recover audit records from the write-ahead log: `audit-admin recover-wal "
+                    "--chain {chain_id} --sequence {sequence_number}`. 3) Rebuild the hash chain from the last valid entry: "
+                    "`audit-admin rebuild-chain --chain {chain_id} --from-last-valid`. "
+                    "4) Check for storage I/O errors: `audit-admin storage-health --volume audit-vol-01`. "
+                    "5) Close the compliance gap: generate an incident report for the Privacy Officer per HIPAA breach "
+                    "notification procedures (45 CFR 164.408). "
+                    "6) Enable write verification: `audit-admin set-write-verify --chain {chain_id} --mode synchronous`."
                 ),
-                "remediation_action": "restart_pacs_gateway",
-                "error_message": "[PACS] DICOM-STORE-FAIL: study={dicom_study_uid} modality={modality} operation={dicom_operation} status={dicom_error_code}",
+                "remediation_action": "rebuild_audit_chain",
+                "error_message": "[DW] HIPAA-AUDIT-FAIL: chain={chain_id} sequence={sequence_number} expected_hash={expected_hash} actual_hash={actual_hash}",
                 "stack_trace": (
-                    "A-ASSOCIATE-RQ PDU\n"
-                    "  Called AE Title:  PACS-SCP-01\n"
-                    "  Calling AE Title: {modality}-SCU\n"
-                    "  Application Context: 1.2.840.10008.3.1.1.1\n"
-                    "  Presentation Context:\n"
-                    "    Abstract Syntax: 1.2.840.10008.5.1.4.1.1.2 ({modality} Image Storage)\n"
-                    "    Transfer Syntax: 1.2.840.10008.1.2.1 (Explicit VR Little Endian)\n"
-                    "A-ASSOCIATE-AC — Association accepted\n"
-                    "{dicom_operation}-RQ | Study: {dicom_study_uid} | Series: 1 of 3\n"
-                    "{dicom_operation}-RSP | Status: {dicom_error_code} | FAILURE\n"
-                    "  Error Comment: DICOM-STORE-FAIL — Storage commitment refused, dataset mismatch\n"
-                    "  Affected SOP Instance: {dicom_study_uid}.1.1\n"
-                    "A-RELEASE-RQ\n"
-                    "A-RELEASE-RP — Association released"
+                    "=== HIPAA AUDIT CHAIN INTEGRITY REPORT ===\n"
+                    "Chain: {chain_id} | Algorithm: SHA-256 | Verification: FAILED\n"
+                    "------------------------------------------------------------------------\n"
+                    "SEQUENCE   | TIMESTAMP   | ACTION       | EXPECTED HASH        | STATUS\n"
+                    "------------------------------------------------------------------------\n"
+                    "{sequence_number:10d} | 20260217143052 | PHI_ACCESS   | {expected_hash} | MISMATCH\n"
+                    "  Stored:   {actual_hash}\n"
+                    "  Expected: {expected_hash}\n"
+                    "------------------------------------------------------------------------\n"
+                    "Previous 3 entries: VALID\n"
+                    "Next entry: CANNOT VERIFY (chain broken)\n"
+                    "------------------------------------------------------------------------\n"
+                    "HIPAA-AUDIT-FAIL: Chain {chain_id} integrity broken at sequence {sequence_number}\n"
+                    "Hash mismatch indicates possible record tampering or data corruption\n"
+                    "Compliance officer notification triggered — investigation required per 45 CFR 164.312(b)"
                 ),
             },
             5: {
@@ -538,39 +637,40 @@ class HealthcareScenario(BaseScenario):
                 ),
             },
             12: {
-                "name": "PACS Storage Capacity Warning",
-                "subsystem": "radiology",
-                "vehicle_section": "pacs_storage",
-                "error_type": "PACS-CAPACITY-CRITICAL",
-                "sensor_type": "storage_monitor",
-                "affected_services": ["imaging-service", "data-warehouse"],
-                "cascade_services": ["clinical-alerts", "ehr-system"],
-                "description": "PACS archive storage capacity approaching critical threshold, risking image loss",
+                "name": "Surgical Schedule Conflict",
+                "subsystem": "scheduling",
+                "vehicle_section": "or_scheduler",
+                "error_type": "SCHED-SURGICAL-CONFLICT",
+                "sensor_type": "surgical_scheduler",
+                "affected_services": ["scheduling-api", "ehr-system"],
+                "cascade_services": ["billing-processor", "clinical-alerts"],
+                "description": "Operating room scheduling conflict detected between overlapping surgical cases",
                 "investigation_notes": (
-                    "Root Cause: PACS storage volumes fill when DICOM image retention policies are not enforced, modality worklists "
-                    "generate excessive preliminary/secondary capture images, or archive migration jobs to long-term storage (VNA) "
-                    "have stalled. High-resolution modalities (CT, MRI) consume 500MB-2GB per study.\n"
-                    "Remediation: 1) Check the archive migration job status: `pacs-admin archive-status --volume {volume_id}`. "
-                    "2) Trigger emergency archive migration to VNA: `pacs-admin migrate --volume {volume_id} --older-than 90d "
-                    "--destination VNA-TIER2`. 3) Identify and purge orphaned DICOM objects: `pacs-admin cleanup --volume "
-                    "{volume_id} --orphans-only`. 4) Expand the volume if migration is insufficient: `pacs-admin volume-expand "
-                    "--volume {volume_id} --add-tb 10`. 5) Review retention policies per radiology department guidelines. "
-                    "6) Enable DICOM compression (JPEG2000 lossless) for new studies to reduce storage consumption."
+                    "Root Cause: OR scheduling conflicts occur when the block schedule management system allows overlapping case "
+                    "bookings due to stale cache data, surgeon preference card changes, or emergency add-on cases that override "
+                    "the time-slot validation. Turnover time buffers may also be insufficient between consecutive cases.\n"
+                    "Remediation: 1) Review the OR block schedule: `sched-admin or-blocks --room {or_number} --date today`. "
+                    "2) Identify the conflict and reassign: `sched-admin or-reassign --case {case_id} --to-room NEXT-AVAILABLE`. "
+                    "3) Verify surgeon block time ownership: `sched-admin surgeon-blocks --npi {surgeon_id}`. "
+                    "4) Restart the OR scheduling engine: `systemctl restart or-scheduling-engine`. "
+                    "5) Update turnover time buffers if consecutive cases are too tightly packed: `sched-admin set-turnover "
+                    "--room {or_number} --minutes 45`. 6) Notify the surgical coordinator and anesthesia scheduling of the change."
                 ),
-                "remediation_action": "expand_pacs_storage",
-                "error_message": "[PACS] PACS-CAPACITY-CRITICAL: volume={volume_id} usage={usage_pct}% threshold={threshold_pct}% remaining={remaining_gb}GB",
+                "remediation_action": "reassign_or_schedule",
+                "error_message": "[SCHED] SCHED-SURGICAL-CONFLICT: or={or_number} case={case_id} surgeon={surgeon_id} conflict_time={conflict_time} patient={patient_id}",
                 "stack_trace": (
-                    "=== PACS STORAGE VOLUME REPORT ===\n"
+                    "=== OR SCHEDULE BLOCK — {or_number} ===\n"
                     "------------------------------------------------------------------------\n"
-                    "VOLUME          | TOTAL TB | USED TB | FREE GB | USAGE% | STATUS\n"
+                    "TIME      | CASE       | SURGEON         | PATIENT     | STATUS\n"
                     "------------------------------------------------------------------------\n"
-                    "{volume_id:15s} | 50.0     | {usage_pct}%  | {remaining_gb}    | {usage_pct}%  | CRITICAL\n"
-                    "PACS-VOL-02     | 50.0     | 72.3%   | 13850   | 72.3%  | OK\n"
-                    "PACS-ARCHIVE-01 | 200.0    | 65.1%   | 69800   | 65.1%  | OK\n"
+                    "07:00     | SURG-44821 | NPI-1234567890  | PT-332145   | COMPLETED\n"
+                    "09:30     | SURG-44822 | NPI-9876543210  | PT-445678   | IN-PROGRESS\n"
+                    "{conflict_time}     | {case_id} | {surgeon_id} | {patient_id}  | CONFLICT\n"
+                    "{conflict_time}     | SURG-EXIST | NPI-EXISTING   | PT-EXISTING | BOOKED\n"
                     "------------------------------------------------------------------------\n"
-                    "PACS-CAPACITY-CRITICAL: {volume_id} at {usage_pct}% (threshold: {threshold_pct}%)\n"
-                    "Remaining: {remaining_gb}GB — estimated time to full: <48 hours\n"
-                    "Action required: archive migration or volume expansion"
+                    "SCHED-SURGICAL-CONFLICT: {or_number} at {conflict_time} — double-booked\n"
+                    "Case {case_id} for surgeon {surgeon_id} overlaps with existing booking\n"
+                    "Patient {patient_id} requires OR reassignment or time shift"
                 ),
             },
             13: {
@@ -688,40 +788,39 @@ class HealthcareScenario(BaseScenario):
                 ),
             },
             16: {
-                "name": "Surgical Schedule Conflict",
-                "subsystem": "scheduling",
-                "vehicle_section": "or_scheduler",
-                "error_type": "SCHED-SURGICAL-CONFLICT",
-                "sensor_type": "surgical_scheduler",
-                "affected_services": ["scheduling-api", "ehr-system"],
-                "cascade_services": ["billing-processor", "clinical-alerts"],
-                "description": "Operating room scheduling conflict detected between overlapping surgical cases",
+                "name": "PACS Storage Capacity Warning",
+                "subsystem": "radiology",
+                "vehicle_section": "pacs_storage",
+                "error_type": "PACS-CAPACITY-CRITICAL",
+                "sensor_type": "storage_monitor",
+                "affected_services": ["imaging-service", "data-warehouse"],
+                "cascade_services": ["clinical-alerts", "ehr-system"],
+                "description": "PACS archive storage capacity approaching critical threshold, risking image loss",
                 "investigation_notes": (
-                    "Root Cause: OR scheduling conflicts occur when the block schedule management system allows overlapping case "
-                    "bookings due to stale cache data, surgeon preference card changes, or emergency add-on cases that override "
-                    "the time-slot validation. Turnover time buffers may also be insufficient between consecutive cases.\n"
-                    "Remediation: 1) Review the OR block schedule: `sched-admin or-blocks --room {or_number} --date today`. "
-                    "2) Identify the conflict and reassign: `sched-admin or-reassign --case {case_id} --to-room NEXT-AVAILABLE`. "
-                    "3) Verify surgeon block time ownership: `sched-admin surgeon-blocks --npi {surgeon_id}`. "
-                    "4) Restart the OR scheduling engine: `systemctl restart or-scheduling-engine`. "
-                    "5) Update turnover time buffers if consecutive cases are too tightly packed: `sched-admin set-turnover "
-                    "--room {or_number} --minutes 45`. 6) Notify the surgical coordinator and anesthesia scheduling of the change."
+                    "Root Cause: PACS storage volumes fill when DICOM image retention policies are not enforced, modality worklists "
+                    "generate excessive preliminary/secondary capture images, or archive migration jobs to long-term storage (VNA) "
+                    "have stalled. High-resolution modalities (CT, MRI) consume 500MB-2GB per study.\n"
+                    "Remediation: 1) Check the archive migration job status: `pacs-admin archive-status --volume {volume_id}`. "
+                    "2) Trigger emergency archive migration to VNA: `pacs-admin migrate --volume {volume_id} --older-than 90d "
+                    "--destination VNA-TIER2`. 3) Identify and purge orphaned DICOM objects: `pacs-admin cleanup --volume "
+                    "{volume_id} --orphans-only`. 4) Expand the volume if migration is insufficient: `pacs-admin volume-expand "
+                    "--volume {volume_id} --add-tb 10`. 5) Review retention policies per radiology department guidelines. "
+                    "6) Enable DICOM compression (JPEG2000 lossless) for new studies to reduce storage consumption."
                 ),
-                "remediation_action": "reassign_or_schedule",
-                "error_message": "[SCHED] SCHED-SURGICAL-CONFLICT: or={or_number} case={case_id} surgeon={surgeon_id} conflict_time={conflict_time} patient={patient_id}",
+                "remediation_action": "expand_pacs_storage",
+                "error_message": "[PACS] PACS-CAPACITY-CRITICAL: volume={volume_id} usage={usage_pct}% threshold={threshold_pct}% remaining={remaining_gb}GB",
                 "stack_trace": (
-                    "=== OR SCHEDULE BLOCK — {or_number} ===\n"
+                    "=== PACS STORAGE VOLUME REPORT ===\n"
                     "------------------------------------------------------------------------\n"
-                    "TIME      | CASE       | SURGEON         | PATIENT     | STATUS\n"
+                    "VOLUME          | TOTAL TB | USED TB | FREE GB | USAGE% | STATUS\n"
                     "------------------------------------------------------------------------\n"
-                    "07:00     | SURG-44821 | NPI-1234567890  | PT-332145   | COMPLETED\n"
-                    "09:30     | SURG-44822 | NPI-9876543210  | PT-445678   | IN-PROGRESS\n"
-                    "{conflict_time}     | {case_id} | {surgeon_id} | {patient_id}  | CONFLICT\n"
-                    "{conflict_time}     | SURG-EXIST | NPI-EXISTING   | PT-EXISTING | BOOKED\n"
+                    "{volume_id:15s} | 50.0     | {usage_pct}%  | {remaining_gb}    | {usage_pct}%  | CRITICAL\n"
+                    "PACS-VOL-02     | 50.0     | 72.3%   | 13850   | 72.3%  | OK\n"
+                    "PACS-ARCHIVE-01 | 200.0    | 65.1%   | 69800   | 65.1%  | OK\n"
                     "------------------------------------------------------------------------\n"
-                    "SCHED-SURGICAL-CONFLICT: {or_number} at {conflict_time} — double-booked\n"
-                    "Case {case_id} for surgeon {surgeon_id} overlaps with existing booking\n"
-                    "Patient {patient_id} requires OR reassignment or time shift"
+                    "PACS-CAPACITY-CRITICAL: {volume_id} at {usage_pct}% (threshold: {threshold_pct}%)\n"
+                    "Remaining: {remaining_gb}GB — estimated time to full: <48 hours\n"
+                    "Action required: archive migration or volume expansion"
                 ),
             },
             17: {
@@ -801,45 +900,42 @@ class HealthcareScenario(BaseScenario):
                 ),
             },
             19: {
-                "name": "HIPAA Audit Log Integrity Error",
-                "subsystem": "analytics",
-                "vehicle_section": "audit_subsystem",
-                "error_type": "HIPAA-AUDIT-FAIL",
-                "sensor_type": "audit_log_integrity",
-                "affected_services": ["data-warehouse", "ehr-system"],
-                "cascade_services": ["clinical-alerts", "billing-processor"],
-                "description": "HIPAA-mandated audit log chain integrity check fails, indicating possible tampering or data loss",
+                "name": "DICOM Transfer Failure",
+                "subsystem": "radiology",
+                "vehicle_section": "pacs_gateway",
+                "error_type": "DICOM-STORE-FAIL",
+                "sensor_type": "dicom_transfer",
+                "affected_services": ["imaging-service", "ehr-system"],
+                "cascade_services": ["clinical-alerts", "data-warehouse"],
+                "description": "DICOM C-STORE or C-MOVE operation fails during modality-to-PACS image transfer",
                 "investigation_notes": (
-                    "Root Cause: HIPAA audit chain integrity failures (SHA-256 hash mismatches) indicate either log record "
-                    "tampering, storage corruption, or an out-of-order write during high-volume PHI access logging. Per 45 CFR "
-                    "164.312(b), audit controls must maintain an unbroken chain of custody for all PHI access events.\n"
-                    "Remediation: 1) Identify the break point: `audit-admin chain-verify --chain {chain_id} --from-sequence "
-                    "{sequence_number} --range 100`. 2) Recover audit records from the write-ahead log: `audit-admin recover-wal "
-                    "--chain {chain_id} --sequence {sequence_number}`. 3) Rebuild the hash chain from the last valid entry: "
-                    "`audit-admin rebuild-chain --chain {chain_id} --from-last-valid`. "
-                    "4) Check for storage I/O errors: `audit-admin storage-health --volume audit-vol-01`. "
-                    "5) Close the compliance gap: generate an incident report for the Privacy Officer per HIPAA breach "
-                    "notification procedures (45 CFR 164.408). "
-                    "6) Enable write verification: `audit-admin set-write-verify --chain {chain_id} --mode synchronous`."
+                    "Root Cause: DICOM association failures (status 0xA700/0xA900) indicate either AE title mismatch, transfer "
+                    "syntax negotiation failure, or storage commitment refusal. The PACS SCP rejects the C-STORE when the "
+                    "Presentation Context (Abstract Syntax + Transfer Syntax) is not in the accepted list.\n"
+                    "Remediation: 1) Verify the DICOM association: `dcm4che-tool storescu --called PACS-SCP-01 --calling {modality}-SCU "
+                    "--connect pacs-host:11112 --cecho`. 2) Reset the DICOM association: `pacs-admin reset-association --ae-title "
+                    "{modality}-SCU`. 3) Check the PACS gateway connection pool: `pacs-admin gateway-status`. "
+                    "4) If persistent, restart the PACS gateway service: `systemctl restart dcm4chee-arc`. "
+                    "5) Verify transfer syntax compatibility — ensure Explicit VR Little Endian (1.2.840.10008.1.2.1) is configured. "
+                    "6) For C-MOVE failures, verify the destination AE title is registered in the DICOM configuration."
                 ),
-                "remediation_action": "rebuild_audit_chain",
-                "error_message": "[DW] HIPAA-AUDIT-FAIL: chain={chain_id} sequence={sequence_number} expected_hash={expected_hash} actual_hash={actual_hash}",
+                "remediation_action": "restart_pacs_gateway",
+                "error_message": "[PACS] DICOM-STORE-FAIL: study={dicom_study_uid} modality={modality} operation={dicom_operation} status={dicom_error_code}",
                 "stack_trace": (
-                    "=== HIPAA AUDIT CHAIN INTEGRITY REPORT ===\n"
-                    "Chain: {chain_id} | Algorithm: SHA-256 | Verification: FAILED\n"
-                    "------------------------------------------------------------------------\n"
-                    "SEQUENCE   | TIMESTAMP   | ACTION       | EXPECTED HASH        | STATUS\n"
-                    "------------------------------------------------------------------------\n"
-                    "{sequence_number:10d} | 20260217143052 | PHI_ACCESS   | {expected_hash} | MISMATCH\n"
-                    "  Stored:   {actual_hash}\n"
-                    "  Expected: {expected_hash}\n"
-                    "------------------------------------------------------------------------\n"
-                    "Previous 3 entries: VALID\n"
-                    "Next entry: CANNOT VERIFY (chain broken)\n"
-                    "------------------------------------------------------------------------\n"
-                    "HIPAA-AUDIT-FAIL: Chain {chain_id} integrity broken at sequence {sequence_number}\n"
-                    "Hash mismatch indicates possible record tampering or data corruption\n"
-                    "Compliance officer notification triggered — investigation required per 45 CFR 164.312(b)"
+                    "A-ASSOCIATE-RQ PDU\n"
+                    "  Called AE Title:  PACS-SCP-01\n"
+                    "  Calling AE Title: {modality}-SCU\n"
+                    "  Application Context: 1.2.840.10008.3.1.1.1\n"
+                    "  Presentation Context:\n"
+                    "    Abstract Syntax: 1.2.840.10008.5.1.4.1.1.2 ({modality} Image Storage)\n"
+                    "    Transfer Syntax: 1.2.840.10008.1.2.1 (Explicit VR Little Endian)\n"
+                    "A-ASSOCIATE-AC — Association accepted\n"
+                    "{dicom_operation}-RQ | Study: {dicom_study_uid} | Series: 1 of 3\n"
+                    "{dicom_operation}-RSP | Status: {dicom_error_code} | FAILURE\n"
+                    "  Error Comment: DICOM-STORE-FAIL — Storage commitment refused, dataset mismatch\n"
+                    "  Affected SOP Instance: {dicom_study_uid}.1.1\n"
+                    "A-RELEASE-RQ\n"
+                    "A-RELEASE-RP — Association released"
                 ),
             },
             20: {
@@ -1111,9 +1207,7 @@ class HealthcareScenario(BaseScenario):
             status_info="#1565c0",
             font_family="'Inter', system-ui, sans-serif",
             font_mono="'JetBrains Mono', 'Fira Code', monospace",
-            dashboard_title="Clinical Systems Dashboard",
             chaos_title="System Disruption Simulator",
-            landing_title="Clinical Systems Operations",
             service_label="Service",
             channel_label="Channel",
         )
@@ -1271,11 +1365,11 @@ class HealthcareScenario(BaseScenario):
                 "pharmacy-system": {"pharmacy.awaiting_lab_results": rng.randint(10, 50), "pharmacy.dosing_hold": True},
                 "clinical-alerts": {"alerts.critical_lab_pending": rng.randint(3, 15), "alerts.tat_breach_count": rng.randint(5, 25)},
             },
-            4: {  # DICOM Transfer Failure
-                "imaging-service": {"dicom.ae_title_mismatch": True, "dicom.transfer_syntax": "1.2.840.10008.1.2.1"},
-                "ehr-system": {"ehr.pending_imaging_results": rng.randint(5, 30), "ehr.pacs_link_status": "disconnected"},
-                "clinical-alerts": {"alerts.imaging_delay_count": rng.randint(2, 10)},
-                "data-warehouse": {"etl.imaging_archive_stalled": True, "etl.pending_studies": rng.randint(20, 100)},
+            4: {  # HIPAA Audit Log Integrity Error
+                "data-warehouse": {"audit.chain_break_detected": True, "audit.wal_recovery_available": rng.choice([True, False])},
+                "ehr-system": {"ehr.phi_access_logging": "degraded", "ehr.unaudited_access_count": rng.randint(10, 100)},
+                "clinical-alerts": {"alerts.compliance_violation_fired": True, "alerts.breach_notification_pending": True},
+                "billing-processor": {"billing.audit_gap_in_claims": True, "billing.cms_reporting_risk": rng.choice(["low", "medium", "high"])},
             },
             5: {  # Medication Interaction Alert Overflow
                 "pharmacy-system": {"cpoe.ddi_queue_depth": rng.randint(100, 500), "cpoe.fdb_cache_stale": True},
@@ -1315,11 +1409,11 @@ class HealthcareScenario(BaseScenario):
                 "ehr-system": {"ehr.unbilled_encounters": rng.randint(20, 100)},
                 "scheduling-api": {"sched.charge_capture_lag_s": rng.randint(300, 1800)},
             },
-            12: {  # PACS Storage Capacity Warning
-                "imaging-service": {"pacs.archive_migration_stalled": True, "pacs.volume_fill_rate_gb_day": round(rng.uniform(50, 200), 0)},
-                "data-warehouse": {"etl.imaging_archive_full": True, "etl.vna_migration_pending": rng.randint(500, 5000)},
-                "clinical-alerts": {"alerts.storage_critical_fired": True},
-                "ehr-system": {"ehr.new_study_routing": "blocked"},
+            12: {  # Surgical Schedule Conflict
+                "scheduling-api": {"sched.or_block_cache_stale": True, "sched.turnover_buffer_min": rng.randint(15, 30)},
+                "ehr-system": {"ehr.surgical_consent_pending": rng.randint(1, 5), "ehr.or_preference_card_stale": True},
+                "billing-processor": {"billing.surgical_pre_auth_pending": rng.randint(1, 3)},
+                "clinical-alerts": {"alerts.or_schedule_conflict_count": rng.randint(1, 4)},
             },
             13: {  # Clinical Decision Support Overload
                 "clinical-alerts": {"cds.rule_eval_pool_saturated": True, "cds.arden_mlm_queue": rng.randint(50, 300)},
@@ -1338,11 +1432,11 @@ class HealthcareScenario(BaseScenario):
                 "ehr-system": {"ehr.transfusion_orders_held": rng.randint(1, 5)},
                 "scheduling-api": {"sched.surgical_cases_held": rng.randint(1, 3), "sched.blood_type_screen_pending": True},
             },
-            16: {  # Surgical Schedule Conflict
-                "scheduling-api": {"sched.or_block_cache_stale": True, "sched.turnover_buffer_min": rng.randint(15, 30)},
-                "ehr-system": {"ehr.surgical_consent_pending": rng.randint(1, 5), "ehr.or_preference_card_stale": True},
-                "billing-processor": {"billing.surgical_pre_auth_pending": rng.randint(1, 3)},
-                "clinical-alerts": {"alerts.or_schedule_conflict_count": rng.randint(1, 4)},
+            16: {  # PACS Storage Capacity Warning
+                "imaging-service": {"pacs.archive_migration_stalled": True, "pacs.volume_fill_rate_gb_day": round(rng.uniform(50, 200), 0)},
+                "data-warehouse": {"etl.imaging_archive_full": True, "etl.vna_migration_pending": rng.randint(500, 5000)},
+                "clinical-alerts": {"alerts.storage_critical_fired": True},
+                "ehr-system": {"ehr.new_study_routing": "blocked"},
             },
             17: {  # ADT Feed Synchronization Gap
                 "ehr-system": {"adt.feed_processor_threads_exhausted": True, "adt.queue_drain_rate_per_s": round(rng.uniform(0.5, 3.0), 1)},
@@ -1356,11 +1450,11 @@ class HealthcareScenario(BaseScenario):
                 "billing-processor": {"billing.revenue_cycle_report_stale": True, "billing.days_behind": rng.randint(1, 5)},
                 "ehr-system": {"ehr.oltp_contention_detected": True, "ehr.query_timeout_count": rng.randint(5, 30)},
             },
-            19: {  # HIPAA Audit Log Integrity Error
-                "data-warehouse": {"audit.chain_break_detected": True, "audit.wal_recovery_available": rng.choice([True, False])},
-                "ehr-system": {"ehr.phi_access_logging": "degraded", "ehr.unaudited_access_count": rng.randint(10, 100)},
-                "clinical-alerts": {"alerts.compliance_violation_fired": True, "alerts.breach_notification_pending": True},
-                "billing-processor": {"billing.audit_gap_in_claims": True, "billing.cms_reporting_risk": rng.choice(["low", "medium", "high"])},
+            19: {  # DICOM Transfer Failure
+                "imaging-service": {"dicom.ae_title_mismatch": True, "dicom.transfer_syntax": "1.2.840.10008.1.2.1"},
+                "ehr-system": {"ehr.pending_imaging_results": rng.randint(5, 30), "ehr.pacs_link_status": "disconnected"},
+                "clinical-alerts": {"alerts.imaging_delay_count": rng.randint(2, 10)},
+                "data-warehouse": {"etl.imaging_archive_stalled": True, "etl.pending_studies": rng.randint(20, 100)},
             },
             20: {  # Telehealth Session Quality Degradation
                 "patient-monitor": {"telehealth.turn_server_overloaded": True, "telehealth.bandwidth_kbps": rng.randint(128, 512)},
@@ -1377,7 +1471,7 @@ class HealthcareScenario(BaseScenario):
             1: ("deployment.ehr_hl7_version", "mirth-3.12.0-hotfix7"),
             2: ("infra.monitor_firmware", "ge-carescape-v4.1.2-rc"),
             3: ("deployment.lis_interface_version", "lis2a2-bridge-v2.8.1-beta"),
-            4: ("infra.pacs_gateway_build", "dcm4chee-5.31.1-patch3"),
+            4: ("deployment.audit_chain_version", "sha256-chain-v2.1.0-rc3"),
             5: ("deployment.cpoe_engine_config", "fdb-cache-aggressive-v2"),
             6: ("infra.ncpdp_gateway_version", "surescripts-adapter-v6.0.3-rc1"),
             7: ("deployment.empi_algorithm_config", "jaro-winkler-tuned-v3.2"),
@@ -1385,14 +1479,14 @@ class HealthcareScenario(BaseScenario):
             9: ("deployment.scheduler_lock_mode", "optimistic-lock-v2.1-exp"),
             10: ("infra.x12_gateway_config", "availity-adapter-v4.3.0-rc2"),
             11: ("deployment.claims_engine_build", "x12-837-processor-v5.1.2-beta"),
-            12: ("infra.pacs_storage_controller", "netapp-ontap-9.14.1-patch"),
+            12: ("infra.or_scheduler_config", "block-mgmt-v3.2.0-beta"),
             13: ("deployment.cds_rule_engine", "arden-mlm-v3.0.1-experimental"),
             14: ("infra.nursecall_bridge_fw", "hillrom-bridge-v2.4.0-rc1"),
             15: ("deployment.bb_isbt_driver", "isbt128-scanner-v1.7.3-patched"),
-            16: ("infra.or_scheduler_config", "block-mgmt-v3.2.0-beta"),
+            16: ("infra.pacs_storage_controller", "netapp-ontap-9.14.1-patch"),
             17: ("deployment.adt_processor_build", "mirth-adt-v3.12.0-hotfix9"),
             18: ("infra.etl_db_pool_config", "hikari-pool-experimental-64conn"),
-            19: ("deployment.audit_chain_version", "sha256-chain-v2.1.0-rc3"),
+            19: ("infra.pacs_gateway_build", "dcm4chee-5.31.1-patch3"),
             20: ("infra.turn_server_build", "coturn-4.6.2-high-concurrency"),
         }
         attr_key, attr_val = correlation_attrs.get(channel, ("deployment.config_version", "unknown"))

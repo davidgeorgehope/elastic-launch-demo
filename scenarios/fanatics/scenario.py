@@ -20,6 +20,10 @@ class FanaticsScenario(BaseScenario):
         return "fanatics"
 
     @property
+    def scenario_icon(self) -> str:
+        return "🏈"
+
+    @property
     def scenario_name(self) -> str:
         return "Fanatics Collectibles"
 
@@ -34,6 +38,98 @@ class FanaticsScenario(BaseScenario):
     @property
     def namespace(self) -> str:
         return "fanatics"
+
+    @property
+    def sort_order(self) -> int:
+        return 2
+
+    @property
+    def raw_log_profile(self) -> dict[str, Any]:
+        return {
+            "service_name": "commerce-edge",
+            "user_id_prefix": "fan",
+            "tier_field": "member_tier",
+            "tier_values": [("guest", 60), ("member", 30), ("allstar", 10)],
+            "country_weights": {"US": 80, "CA": 8, "GB": 5, "MX": 4, "AU": 3},
+            "methods": ["GET", "POST", "PUT", "DELETE"],
+            "paths": [
+                "/api/v1/catalog", "/api/v1/cart", "/api/v1/checkout",
+                "/api/v1/orders", "/api/v1/jerseys/{team}", "/api/v1/teams",
+                "/login", "/health",
+            ],
+            "change_point_path": "/api/v1/checkout",
+        }
+
+    @property
+    def executive_kpi_emitter_service_name(self) -> str:
+        return "digital-marketplace"
+
+    @property
+    def executive_dashboard_intro(self) -> str:
+        return (
+            "**Fanatics executive KPIs** — sports media, streaming, fantasy, collectibles "
+            "commerce, sponsorship, and regulated wagering (synthetic `business.*` from `digital-marketplace`)."
+        )
+
+    @property
+    def executive_kpi_sections(self) -> list[dict]:
+        return [
+            {
+                "header": "**Monetization & wagering** — ads, subscriptions, handle, and margin",
+                "specs": [
+                    ("Ad revenue (USD/min)", "metrics.business.ad_revenue_usd_per_min"),
+                    ("Programmatic fill (%)", "metrics.business.programmatic_fill_rate_pct"),
+                    ("Betting handle (USD/min)", "metrics.business.betting_handle_usd_per_min"),
+                    ("Sportsbook hold (%)", "metrics.business.betting_hold_pct"),
+                    ("Gross win (USD/min)", "metrics.business.betting_gross_win_usd_per_min"),
+                    ("Subscription MRR (USD/min)", "metrics.business.subscription_mrr_usd_per_min"),
+                ],
+            },
+            {
+                "header": "**Audience & engagement** — live scale, video, traffic, sessions, fantasy",
+                "specs": [
+                    ("Live concurrent viewers", "metrics.business.live_concurrent_viewers"),
+                    ("Video min engaged / min", "metrics.business.video_minutes_engaged_per_min"),
+                    ("Page views / min", "metrics.business.page_views_per_min"),
+                    ("App sessions / min", "metrics.business.app_sessions_per_min"),
+                    ("Content completion (%)", "metrics.business.content_completion_rate_pct"),
+                    ("Fantasy active entries", "metrics.business.fantasy_active_entries"),
+                ],
+            },
+            {
+                "header": "**Commerce & partners** — merch, tickets, sponsorship, B2B data",
+                "specs": [
+                    ("Merch GMV (USD/min)", "metrics.business.merch_gmv_usd_per_min"),
+                    ("Live ticketing (USD/min)", "metrics.business.live_event_ticketing_usd_per_min"),
+                    ("Partner sponsorship (USD/min)", "metrics.business.partner_sponsorship_usd_per_min"),
+                    ("API / data partner (USD/min)", "metrics.business.api_data_partner_revenue_usd_per_min"),
+                    ("Sponsored inv. (s/min)", "metrics.business.sponsored_inventory_seconds_per_min"),
+                    ("Premium ARPU (USD)", "metrics.business.premium_tier_arpu_usd"),
+                ],
+            },
+            {
+                "header": "**Marketing & health** — CRM, loyalty, social, churn & satisfaction proxies",
+                "specs": [
+                    ("Push CTR (%)", "metrics.business.push_notification_ctr_pct"),
+                    ("Newsletter open (%)", "metrics.business.newsletter_open_rate_pct"),
+                    ("Loyalty redeem (pts/min)", "metrics.business.loyalty_points_redeemed_per_min"),
+                    ("Social clip shares / min", "metrics.business.social_clip_shares_per_min"),
+                    ("Churn risk (0–100)", "metrics.business.churn_risk_index_0_100"),
+                    ("Satisfaction proxy (NPS-like)", "metrics.business.net_satisfaction_proxy_nps"),
+                ],
+            },
+        ]
+
+    @property
+    def executive_trend_charts(self) -> list[dict]:
+        return [
+            {"title": "Ad revenue trend", "field": "metrics.business.ad_revenue_usd_per_min", "y_label": "USD/min"},
+            {"title": "Video engagement (min/min)", "field": "metrics.business.video_minutes_engaged_per_min", "y_label": "min/min"},
+            {"title": "Live concurrent viewers", "field": "metrics.business.live_concurrent_viewers", "y_label": "viewers"},
+            {"title": "Betting handle trend", "field": "metrics.business.betting_handle_usd_per_min", "y_label": "USD/min"},
+            {"title": "Subscription MRR trend", "field": "metrics.business.subscription_mrr_usd_per_min", "y_label": "USD/min"},
+            {"title": "Merch GMV trend", "field": "metrics.business.merch_gmv_usd_per_min", "y_label": "USD/min"},
+        ]
 
     # ── Services ──────────────────────────────────────────────────────
 
@@ -235,41 +331,41 @@ class FanaticsScenario(BaseScenario):
                 ),
             },
             4: {
-                "name": "Firewall Session Table Exhaustion",
-                "subsystem": "security",
-                "vehicle_section": "perimeter_defense",
-                "error_type": "SYSTEM-session-threshold",
-                "sensor_type": "session_table",
-                "affected_services": ["firewall-gateway", "network-controller"],
-                "cascade_services": ["digital-marketplace", "auction-engine"],
-                "description": "Firewall session table approaching maximum capacity, new connections being dropped",
+                "name": "Warehouse Scanner Desync",
+                "subsystem": "logistics",
+                "vehicle_section": "inventory_system",
+                "error_type": "WMS-SCANNER-DESYNC",
+                "sensor_type": "barcode_scanner",
+                "affected_services": ["packaging-fulfillment", "cloud-inventory-scanner"],
+                "cascade_services": ["digital-marketplace", "card-printing-system"],
+                "description": "Barcode scanners losing synchronization with inventory management system",
                 "investigation_notes": (
-                    "1. Run `show session all filter count yes` to confirm active session count, then `show session info` for utilization percentage.\n"
-                    "2. Identify top talkers: `show session all filter source <zone> count yes` — look for a single IP consuming disproportionate sessions.\n"
-                    "3. Check for a DDoS or scan: `show session all filter application unknown` — unknown apps with high session counts suggest malicious traffic.\n"
-                    "4. Review session timeout settings: `show running-config | match timeout` — aggressive TCP timeout defaults (3600s) may keep stale sessions alive.\n"
-                    "5. Reduce TCP session timeout for non-critical zones: `set deviceconfig setting session timeout-tcp 1800`.\n"
-                    "6. If a specific source is flooding, apply a DoS Protection Profile or temporarily block via `set security-rule deny-source <ip>`."
+                    "1. Check scanner WiFi signal strength: -72 dBm is marginal — scanners need at least -67 dBm for reliable real-time sync in warehouse environments.\n"
+                    "2. Verify the scanner firmware version: v3.0.x has known sync bugs with the WMS REST API — upgrade to v3.2.1 which includes the keepalive fix.\n"
+                    "3. Battery at 34% can cause intermittent WiFi disconnections on Zebra MC9300 scanners — swap batteries and check if sync recovers.\n"
+                    "4. Missed scans create inventory deltas — run a zone reconciliation: `wms-cli reconcile --zone <zone> --source physical-count`.\n"
+                    "5. If multiple scanners in the same zone are desyncing, the issue is likely the WiFi AP in that zone — check AP health (correlate with Channel 7/8).\n"
+                    "6. As a workaround, switch scanners to batch/store-and-forward mode until WiFi is stable, then bulk-upload when connectivity is restored."
                 ),
-                "remediation_action": "flush_session_table",
+                "remediation_action": "resync_scanners",
                 "error_message": (
-                    "1,2025/01/15 14:32:01,007200001234,SYSTEM,session,0,"
-                    "SYSTEM-session-threshold,Session table utilization critical: "
-                    "{session_count}/{session_max} ({session_util_pct}%) in zone {fw_zone}, "
-                    "{session_drops} new connections dropped, top source {top_source_ip}"
+                    "wms.inventory WMS-SCANNER-DESYNC scanner={scanner_id} "
+                    "zone={scanner_zone} last_sync={scanner_last_sync_sec}s "
+                    "(max {scanner_sync_max_sec}s) missed_scans={scanner_missed_scans} "
+                    "inventory_delta={inventory_delta} firmware=v{scanner_firmware}"
                 ),
                 "stack_trace": (
-                    "> show session info\n"
-                    "Number of sessions supported:    {session_max}\n"
-                    "Number of active sessions:       {session_count}\n"
-                    "Session table utilization:       {session_util_pct}%\n"
-                    "Number of sessions dropped:      {session_drops}\n"
-                    "  Zone: {fw_zone}\n"
-                    "  Top source: {top_source_ip}\n"
-                    "TCP sessions:    {session_count}\n"
-                    "UDP sessions:    1245\n"
-                    "ICMP sessions:   89\n"
-                    "Session aging:   TCP default timeout 3600s"
+                    "WMS Scanner Sync Diagnostic Report\n"
+                    "------------------------------------\n"
+                    "Scanner ID:     {scanner_id}\n"
+                    "Zone:           {scanner_zone}\n"
+                    "Last Sync:      {scanner_last_sync_sec}s ago (threshold: {scanner_sync_max_sec}s)\n"
+                    "Missed Scans:   {scanner_missed_scans}\n"
+                    "Inventory Delta: {inventory_delta} items\n"
+                    "Firmware:       v{scanner_firmware}\n"
+                    "WiFi Signal:    -72 dBm (marginal)\n"
+                    "Battery Level:  34%\n"
+                    "Recommended Action: Reconnect scanner, verify WiFi coverage in {scanner_zone}"
                 ),
             },
             5: {
@@ -311,42 +407,42 @@ class FanaticsScenario(BaseScenario):
                 ),
             },
             6: {
-                "name": "SSL Decryption Certificate Expiry",
-                "subsystem": "security",
-                "vehicle_section": "ssl_inspection",
-                "error_type": "SYSTEM-cert-expire",
-                "sensor_type": "certificate",
-                "affected_services": ["firewall-gateway", "dns-dhcp-service"],
-                "cascade_services": ["digital-marketplace", "auction-engine"],
-                "description": "SSL decryption forward proxy certificate expiring or expired, breaking TLS inspection",
+                "name": "Fulfillment Label Printer Failure",
+                "subsystem": "logistics",
+                "vehicle_section": "shipping_bay",
+                "error_type": "WMS-LABEL-PRINTER-FAULT",
+                "sensor_type": "label_printer",
+                "affected_services": ["packaging-fulfillment", "card-printing-system"],
+                "cascade_services": ["digital-marketplace"],
+                "description": "Shipping label printers going offline or producing unreadable labels",
                 "investigation_notes": (
-                    "1. Run `show system certificate detail` to check expiration dates for all installed certificates.\n"
-                    "2. Identify which decryption profile references the expiring cert: `show config running | match ssl-decrypt`.\n"
-                    "3. Count affected policy rules: `show rule-hit-count vsys vsys1 rule-base decryption` — each rule referencing this profile will fail.\n"
-                    "4. Generate a new CSR from PAN-OS: `request certificate generate ...` or import a renewed cert from the internal CA.\n"
-                    "5. After replacement, commit and verify: `request certificate info` and test with `curl -v https://<internal-url>` from a client behind the firewall.\n"
-                    "6. Set up certificate expiration monitoring: configure SNMP traps or syslog alerts for certs expiring within 30 days to prevent recurrence."
+                    "1. Check the Zebra printer error code: E1001 = print head overheated, E2003 = ribbon empty, E3005 = label gap detection failure, E4002 = paper out.\n"
+                    "2. For OFFLINE status, verify the network connection: `ping <printer_ip>` and check the switch port: `show interface <port> status`.\n"
+                    "3. HEAD_ERROR requires print head replacement — Zebra ZT411/ZT421 heads have a ~50km print life; check the odometer in the printer menu.\n"
+                    "4. Unreadable labels (barcode scan failures) indicate print darkness is too low or the thermal ribbon is wrinkled — run a test label: `^XA^FO50,50^BY3^BCN,100,Y,N,N^FD1234567890^FS^XZ`.\n"
+                    "5. Queue depth above 200 while the printer is offline means shipments are stacking up — redirect traffic to a backup Zebra printer immediately.\n"
+                    "6. For carrier-specific label format issues (ZPL vs EPL), verify the printer firmware supports the required label format and update if needed."
                 ),
-                "remediation_action": "renew_certificate",
+                "remediation_action": "restart_label_printer",
                 "error_message": (
-                    "1,2025/01/15 14:32:01,007200001234,SYSTEM,general,0,"
-                    "SYSTEM-cert-expire,Certificate '{cert_cn}' (serial {cert_serial}) "
-                    "expires in {cert_days_remaining} days, decryption profile {cert_profile}, "
-                    "affecting {cert_affected_rules} policy rules"
+                    "wms.shipping WMS-LABEL-PRINTER-FAULT printer={label_printer_id} "
+                    "status={label_printer_status} error_code={label_error_code} "
+                    "failed_labels={label_failed_count} window={label_window_min}m "
+                    "carrier={label_carrier} queue_depth={label_queue_depth}"
                 ),
                 "stack_trace": (
-                    "> show system certificate detail\n"
-                    "Certificate '{cert_cn}'\n"
-                    "  Serial Number: {cert_serial}\n"
-                    "  Issuer: CN=Fanatics-Internal-CA,O=Fanatics Inc\n"
-                    "  Subject: CN={cert_cn}\n"
-                    "  Not Before: Jan 15 00:00:00 2024 GMT\n"
-                    "  Not After:  Jan 18 00:00:00 2025 GMT\n"
-                    "  Days Remaining: {cert_days_remaining}\n"
-                    "  Key Size: 2048\n"
-                    "  Used by decryption profile: {cert_profile}\n"
-                    "  Policy rules referencing: {cert_affected_rules}\n"
-                    "  Status: EXPIRING"
+                    "WMS Label Subsystem Diagnostic Report\n"
+                    "--------------------------------------\n"
+                    "Printer ID:     {label_printer_id}\n"
+                    "Status:         {label_printer_status}\n"
+                    "Error Code:     {label_error_code}\n"
+                    "Failed Labels:  {label_failed_count} in last {label_window_min} minutes\n"
+                    "Carrier:        {label_carrier}\n"
+                    "Queue Depth:    {label_queue_depth} shipments pending\n"
+                    "ZPL Version:    ZPL-II\n"
+                    "Print Head:     NEEDS_REPLACEMENT\n"
+                    "Last Maintenance: 45 days ago\n"
+                    "Recommended Action: Replace print head, recalibrate label alignment"
                 ),
             },
             7: {
@@ -714,80 +810,80 @@ class FanaticsScenario(BaseScenario):
                 ),
             },
             17: {
-                "name": "Fulfillment Label Printer Failure",
-                "subsystem": "logistics",
-                "vehicle_section": "shipping_bay",
-                "error_type": "WMS-LABEL-PRINTER-FAULT",
-                "sensor_type": "label_printer",
-                "affected_services": ["packaging-fulfillment", "card-printing-system"],
-                "cascade_services": ["digital-marketplace"],
-                "description": "Shipping label printers going offline or producing unreadable labels",
+                "name": "SSL Decryption Certificate Expiry",
+                "subsystem": "security",
+                "vehicle_section": "ssl_inspection",
+                "error_type": "SYSTEM-cert-expire",
+                "sensor_type": "certificate",
+                "affected_services": ["firewall-gateway", "dns-dhcp-service"],
+                "cascade_services": ["digital-marketplace", "auction-engine"],
+                "description": "SSL decryption forward proxy certificate expiring or expired, breaking TLS inspection",
                 "investigation_notes": (
-                    "1. Check the Zebra printer error code: E1001 = print head overheated, E2003 = ribbon empty, E3005 = label gap detection failure, E4002 = paper out.\n"
-                    "2. For OFFLINE status, verify the network connection: `ping <printer_ip>` and check the switch port: `show interface <port> status`.\n"
-                    "3. HEAD_ERROR requires print head replacement — Zebra ZT411/ZT421 heads have a ~50km print life; check the odometer in the printer menu.\n"
-                    "4. Unreadable labels (barcode scan failures) indicate print darkness is too low or the thermal ribbon is wrinkled — run a test label: `^XA^FO50,50^BY3^BCN,100,Y,N,N^FD1234567890^FS^XZ`.\n"
-                    "5. Queue depth above 200 while the printer is offline means shipments are stacking up — redirect traffic to a backup Zebra printer immediately.\n"
-                    "6. For carrier-specific label format issues (ZPL vs EPL), verify the printer firmware supports the required label format and update if needed."
+                    "1. Run `show system certificate detail` to check expiration dates for all installed certificates.\n"
+                    "2. Identify which decryption profile references the expiring cert: `show config running | match ssl-decrypt`.\n"
+                    "3. Count affected policy rules: `show rule-hit-count vsys vsys1 rule-base decryption` — each rule referencing this profile will fail.\n"
+                    "4. Generate a new CSR from PAN-OS: `request certificate generate ...` or import a renewed cert from the internal CA.\n"
+                    "5. After replacement, commit and verify: `request certificate info` and test with `curl -v https://<internal-url>` from a client behind the firewall.\n"
+                    "6. Set up certificate expiration monitoring: configure SNMP traps or syslog alerts for certs expiring within 30 days to prevent recurrence."
                 ),
-                "remediation_action": "restart_label_printer",
+                "remediation_action": "renew_certificate",
                 "error_message": (
-                    "wms.shipping WMS-LABEL-PRINTER-FAULT printer={label_printer_id} "
-                    "status={label_printer_status} error_code={label_error_code} "
-                    "failed_labels={label_failed_count} window={label_window_min}m "
-                    "carrier={label_carrier} queue_depth={label_queue_depth}"
+                    "1,2025/01/15 14:32:01,007200001234,SYSTEM,general,0,"
+                    "SYSTEM-cert-expire,Certificate '{cert_cn}' (serial {cert_serial}) "
+                    "expires in {cert_days_remaining} days, decryption profile {cert_profile}, "
+                    "affecting {cert_affected_rules} policy rules"
                 ),
                 "stack_trace": (
-                    "WMS Label Subsystem Diagnostic Report\n"
-                    "--------------------------------------\n"
-                    "Printer ID:     {label_printer_id}\n"
-                    "Status:         {label_printer_status}\n"
-                    "Error Code:     {label_error_code}\n"
-                    "Failed Labels:  {label_failed_count} in last {label_window_min} minutes\n"
-                    "Carrier:        {label_carrier}\n"
-                    "Queue Depth:    {label_queue_depth} shipments pending\n"
-                    "ZPL Version:    ZPL-II\n"
-                    "Print Head:     NEEDS_REPLACEMENT\n"
-                    "Last Maintenance: 45 days ago\n"
-                    "Recommended Action: Replace print head, recalibrate label alignment"
+                    "> show system certificate detail\n"
+                    "Certificate '{cert_cn}'\n"
+                    "  Serial Number: {cert_serial}\n"
+                    "  Issuer: CN=Fanatics-Internal-CA,O=Fanatics Inc\n"
+                    "  Subject: CN={cert_cn}\n"
+                    "  Not Before: Jan 15 00:00:00 2024 GMT\n"
+                    "  Not After:  Jan 18 00:00:00 2025 GMT\n"
+                    "  Days Remaining: {cert_days_remaining}\n"
+                    "  Key Size: 2048\n"
+                    "  Used by decryption profile: {cert_profile}\n"
+                    "  Policy rules referencing: {cert_affected_rules}\n"
+                    "  Status: EXPIRING"
                 ),
             },
             18: {
-                "name": "Warehouse Scanner Desync",
-                "subsystem": "logistics",
-                "vehicle_section": "inventory_system",
-                "error_type": "WMS-SCANNER-DESYNC",
-                "sensor_type": "barcode_scanner",
-                "affected_services": ["packaging-fulfillment", "cloud-inventory-scanner"],
-                "cascade_services": ["digital-marketplace", "card-printing-system"],
-                "description": "Barcode scanners losing synchronization with inventory management system",
+                "name": "Firewall Session Table Exhaustion",
+                "subsystem": "security",
+                "vehicle_section": "perimeter_defense",
+                "error_type": "SYSTEM-session-threshold",
+                "sensor_type": "session_table",
+                "affected_services": ["firewall-gateway", "network-controller"],
+                "cascade_services": ["digital-marketplace", "auction-engine"],
+                "description": "Firewall session table approaching maximum capacity, new connections being dropped",
                 "investigation_notes": (
-                    "1. Check scanner WiFi signal strength: -72 dBm is marginal — scanners need at least -67 dBm for reliable real-time sync in warehouse environments.\n"
-                    "2. Verify the scanner firmware version: v3.0.x has known sync bugs with the WMS REST API — upgrade to v3.2.1 which includes the keepalive fix.\n"
-                    "3. Battery at 34% can cause intermittent WiFi disconnections on Zebra MC9300 scanners — swap batteries and check if sync recovers.\n"
-                    "4. Missed scans create inventory deltas — run a zone reconciliation: `wms-cli reconcile --zone <zone> --source physical-count`.\n"
-                    "5. If multiple scanners in the same zone are desyncing, the issue is likely the WiFi AP in that zone — check AP health (correlate with Channel 7/8).\n"
-                    "6. As a workaround, switch scanners to batch/store-and-forward mode until WiFi is stable, then bulk-upload when connectivity is restored."
+                    "1. Run `show session all filter count yes` to confirm active session count, then `show session info` for utilization percentage.\n"
+                    "2. Identify top talkers: `show session all filter source <zone> count yes` — look for a single IP consuming disproportionate sessions.\n"
+                    "3. Check for a DDoS or scan: `show session all filter application unknown` — unknown apps with high session counts suggest malicious traffic.\n"
+                    "4. Review session timeout settings: `show running-config | match timeout` — aggressive TCP timeout defaults (3600s) may keep stale sessions alive.\n"
+                    "5. Reduce TCP session timeout for non-critical zones: `set deviceconfig setting session timeout-tcp 1800`.\n"
+                    "6. If a specific source is flooding, apply a DoS Protection Profile or temporarily block via `set security-rule deny-source <ip>`."
                 ),
-                "remediation_action": "resync_scanners",
+                "remediation_action": "flush_session_table",
                 "error_message": (
-                    "wms.inventory WMS-SCANNER-DESYNC scanner={scanner_id} "
-                    "zone={scanner_zone} last_sync={scanner_last_sync_sec}s "
-                    "(max {scanner_sync_max_sec}s) missed_scans={scanner_missed_scans} "
-                    "inventory_delta={inventory_delta} firmware=v{scanner_firmware}"
+                    "1,2025/01/15 14:32:01,007200001234,SYSTEM,session,0,"
+                    "SYSTEM-session-threshold,Session table utilization critical: "
+                    "{session_count}/{session_max} ({session_util_pct}%) in zone {fw_zone}, "
+                    "{session_drops} new connections dropped, top source {top_source_ip}"
                 ),
                 "stack_trace": (
-                    "WMS Scanner Sync Diagnostic Report\n"
-                    "------------------------------------\n"
-                    "Scanner ID:     {scanner_id}\n"
-                    "Zone:           {scanner_zone}\n"
-                    "Last Sync:      {scanner_last_sync_sec}s ago (threshold: {scanner_sync_max_sec}s)\n"
-                    "Missed Scans:   {scanner_missed_scans}\n"
-                    "Inventory Delta: {inventory_delta} items\n"
-                    "Firmware:       v{scanner_firmware}\n"
-                    "WiFi Signal:    -72 dBm (marginal)\n"
-                    "Battery Level:  34%\n"
-                    "Recommended Action: Reconnect scanner, verify WiFi coverage in {scanner_zone}"
+                    "> show session info\n"
+                    "Number of sessions supported:    {session_max}\n"
+                    "Number of active sessions:       {session_count}\n"
+                    "Session table utilization:       {session_util_pct}%\n"
+                    "Number of sessions dropped:      {session_drops}\n"
+                    "  Zone: {fw_zone}\n"
+                    "  Top source: {top_source_ip}\n"
+                    "TCP sessions:    {session_count}\n"
+                    "UDP sessions:    1245\n"
+                    "ICMP sessions:   89\n"
+                    "Session aging:   TCP default timeout 3600s"
                 ),
             },
             19: {
@@ -1131,9 +1227,7 @@ class FanaticsScenario(BaseScenario):
             status_info="#58a6ff",
             font_family="'Inter', system-ui, sans-serif",
             grid_background=True,
-            dashboard_title="Network Operations Center (NOC)",
             chaos_title="Incident Simulator",
-            landing_title="Fanatics Infrastructure Operations",
         )
 
     @property
@@ -1300,11 +1394,11 @@ class FanaticsScenario(BaseScenario):
                 "dns-dhcp-service": {"dns.forwarder_unreachable": True, "dns.affected_queries_pct": round(rng.uniform(30, 80), 1)},
                 "cloud-inventory-scanner": {"cloud_scan.cross_cloud_route_missing": True, "cloud_scan.affected_provider": rng.choice(["aws", "azure"])},
             },
-            4: {  # Firewall Session Table Exhaustion
-                "firewall-gateway": {"firewall.top_session_source": f"10.{rng.randint(1,254)}.{rng.randint(1,254)}.{rng.randint(1,254)}", "firewall.tcp_timeout_config": 3600},
-                "network-controller": {"network.qos_drops_increasing": True, "network.affected_queue": rng.choice(["Q1-PRIORITY", "Q3-BEST-EFFORT"])},
-                "digital-marketplace": {"marketplace.connection_pool_exhausted": True, "marketplace.pending_checkouts": rng.randint(50, 500)},
-                "auction-engine": {"auction.websocket_failures": rng.randint(20, 200), "auction.bid_timeouts": rng.randint(5, 50)},
+            4: {  # Warehouse Scanner Desync
+                "packaging-fulfillment": {"warehouse.inventory_drift_items": rng.randint(20, 200), "warehouse.scanner_firmware": rng.choice(["3.0.5", "3.1.8"])},
+                "cloud-inventory-scanner": {"cloud_scan.physical_digital_mismatch": rng.randint(10, 100), "cloud_scan.reconciliation_failures": rng.randint(5, 50)},
+                "digital-marketplace": {"marketplace.phantom_stock_skus": rng.randint(5, 50), "marketplace.oversold_orders": rng.randint(1, 20)},
+                "card-printing-system": {"print.reprint_triggered_by_desync": rng.randint(3, 30), "print.inventory_hold": True},
             },
             5: {  # Firewall CPU Overload
                 "firewall-gateway": {"firewall.dp_cpu_offender": rng.choice(["ssl-decrypt", "threat-prevention", "url-filtering"]), "firewall.packet_buffer_pct": round(rng.uniform(80, 98), 1)},
@@ -1312,11 +1406,10 @@ class FanaticsScenario(BaseScenario):
                 "dns-dhcp-service": {"dns.query_timeout_pct": round(rng.uniform(15, 60), 1), "dns.upstream_latency_ms": rng.randint(200, 2000)},
                 "digital-marketplace": {"marketplace.page_load_ms": rng.randint(3000, 15000), "marketplace.ssl_handshake_failures": rng.randint(10, 100)},
             },
-            6: {  # SSL Decryption Certificate Expiry
-                "firewall-gateway": {"firewall.cert_serial": f"{rng.randint(100000,999999):X}", "firewall.decryption_bypass_count": rng.randint(100, 5000)},
-                "dns-dhcp-service": {"dns.tls_dot_failures": rng.randint(10, 200), "dns.fallback_to_udp": True},
-                "digital-marketplace": {"marketplace.checkout_ssl_errors": rng.randint(20, 300), "marketplace.customer_complaints": rng.randint(5, 50)},
-                "auction-engine": {"auction.wss_handshake_failures": rng.randint(10, 100), "auction.bidder_disconnects": rng.randint(5, 80)},
+            6: {  # Fulfillment Label Printer Failure
+                "packaging-fulfillment": {"warehouse.label_printer_error": rng.choice(["E1001", "E2003", "E3005"]), "warehouse.shipments_held": rng.randint(50, 500)},
+                "card-printing-system": {"print.completed_no_label": rng.randint(20, 200), "print.staging_area_full": True},
+                "digital-marketplace": {"marketplace.shipping_delay_orders": rng.randint(50, 500), "marketplace.tracking_unavailable_count": rng.randint(30, 300)},
             },
             7: {  # WiFi AP Disconnect Storm
                 "wifi-controller": {"wifi.capwap_tunnel_down": rng.randint(5, 20), "wifi.poe_budget_exceeded": rng.choice([True, False])},
@@ -1374,16 +1467,17 @@ class FanaticsScenario(BaseScenario):
                 "digital-marketplace": {"marketplace.out_of_stock_skus": rng.randint(5, 50), "marketplace.customer_refund_queue": rng.randint(3, 30)},
                 "auction-engine": {"auction.delayed_shipment_auctions": rng.randint(2, 20), "auction.buyer_dispute_count": rng.randint(1, 10)},
             },
-            17: {  # Fulfillment Label Printer Failure
-                "packaging-fulfillment": {"warehouse.label_printer_error": rng.choice(["E1001", "E2003", "E3005"]), "warehouse.shipments_held": rng.randint(50, 500)},
-                "card-printing-system": {"print.completed_no_label": rng.randint(20, 200), "print.staging_area_full": True},
-                "digital-marketplace": {"marketplace.shipping_delay_orders": rng.randint(50, 500), "marketplace.tracking_unavailable_count": rng.randint(30, 300)},
+            17: {  # SSL Decryption Certificate Expiry
+                "firewall-gateway": {"firewall.cert_serial": f"{rng.randint(100000,999999):X}", "firewall.decryption_bypass_count": rng.randint(100, 5000)},
+                "dns-dhcp-service": {"dns.tls_dot_failures": rng.randint(10, 200), "dns.fallback_to_udp": True},
+                "digital-marketplace": {"marketplace.checkout_ssl_errors": rng.randint(20, 300), "marketplace.customer_complaints": rng.randint(5, 50)},
+                "auction-engine": {"auction.wss_handshake_failures": rng.randint(10, 100), "auction.bidder_disconnects": rng.randint(5, 80)},
             },
-            18: {  # Warehouse Scanner Desync
-                "packaging-fulfillment": {"warehouse.inventory_drift_items": rng.randint(20, 200), "warehouse.scanner_firmware": rng.choice(["3.0.5", "3.1.8"])},
-                "cloud-inventory-scanner": {"cloud_scan.physical_digital_mismatch": rng.randint(10, 100), "cloud_scan.reconciliation_failures": rng.randint(5, 50)},
-                "digital-marketplace": {"marketplace.phantom_stock_skus": rng.randint(5, 50), "marketplace.oversold_orders": rng.randint(1, 20)},
-                "card-printing-system": {"print.reprint_triggered_by_desync": rng.randint(3, 30), "print.inventory_hold": True},
+            18: {  # Firewall Session Table Exhaustion
+                "firewall-gateway": {"firewall.top_session_source": f"10.{rng.randint(1,254)}.{rng.randint(1,254)}.{rng.randint(1,254)}", "firewall.tcp_timeout_config": 3600},
+                "network-controller": {"network.qos_drops_increasing": True, "network.affected_queue": rng.choice(["Q1-PRIORITY", "Q3-BEST-EFFORT"])},
+                "digital-marketplace": {"marketplace.connection_pool_exhausted": True, "marketplace.pending_checkouts": rng.randint(50, 500)},
+                "auction-engine": {"auction.websocket_failures": rng.randint(20, 200), "auction.bid_timeouts": rng.randint(5, 50)},
             },
             19: {  # Orphaned Cloud Resource Alert
                 "cloud-inventory-scanner": {"cloud_scan.orphan_daily_cost_usd": round(rng.uniform(50, 2000), 2), "cloud_scan.oldest_orphan_days": rng.randint(14, 180)},
@@ -1405,9 +1499,9 @@ class FanaticsScenario(BaseScenario):
             1: ("deployment.release_train", "net-core-v2.8.1-canary"),
             2: ("infra.stp_firmware", "ios-xe-17.9.4a-prerelease"),
             3: ("network.bgp_policy_rev", "route-policy-v3.2.0-rc1"),
-            4: ("infra.fw_session_config", "pan-os-11.1.3-hotfix2"),
+            4: ("deployment.scanner_firmware", "mc9300-fw-3.0.5-known-bug"),
             5: ("deployment.threat_sig_ver", "content-8845-8432-experimental"),
-            6: ("infra.cert_chain_bundle", "internal-ca-v2-cross-signed"),
+            6: ("infra.label_zpl_version", "zebra-zpl-ii-v6.1-patched"),
             7: ("deployment.ap_firmware", "mist-fw-0.14.29313-beta"),
             8: ("infra.rrm_algorithm", "auto-rrm-v3.1-aggressive"),
             9: ("deployment.radius_config", "nps-policy-2025q1-draft"),
@@ -1418,8 +1512,8 @@ class FanaticsScenario(BaseScenario):
             14: ("deployment.catalog_schema_ver", "schema-v5.3.0-migration-pending"),
             15: ("infra.rip_server_config", "fiery-rip-v4.0.1-preview"),
             16: ("deployment.qc_vision_model", "defect-detect-v2.1.0-retrained"),
-            17: ("infra.label_zpl_version", "zebra-zpl-ii-v6.1-patched"),
-            18: ("deployment.scanner_firmware", "mc9300-fw-3.0.5-known-bug"),
+            17: ("infra.cert_chain_bundle", "internal-ca-v2-cross-signed"),
+            18: ("infra.fw_session_config", "pan-os-11.1.3-hotfix2"),
             19: ("infra.cloud_policy_ver", "org-policy-v2.4.0-unenforced"),
             20: ("network.vpn_gw_firmware", "vgw-strongswan-5.9.14-rc2"),
         }

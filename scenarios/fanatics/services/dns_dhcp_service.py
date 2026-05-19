@@ -52,10 +52,15 @@ class DnsDhcpService(BaseService):
         # -- DHCP lease pool --
         scope = random.choice(self.DHCP_SCOPES)
         total_leases = 254
-        active_leases = random.randint(100, 230) if not active_channels else random.randint(240, 254)
+        active_leases = (
+            random.randint(100, 230)
+            if not active_channels
+            else random.randint(240, 254)
+        )
         self.emit_metric("dhcp.active_leases", float(active_leases), "leases")
-        self.emit_metric("dhcp.utilization_pct",
-                         round(active_leases / total_leases * 100, 1), "%")
+        self.emit_metric(
+            "dhcp.utilization_pct", round(active_leases / total_leases * 100, 1), "%"
+        )
 
         self.emit_log(
             "INFO",

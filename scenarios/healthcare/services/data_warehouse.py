@@ -15,7 +15,12 @@ class DataWarehouseService(BaseService):
         super().__init__(chaos_controller, otlp_client)
         self._etl_runs_completed = 0
         self._last_audit_check = time.time()
-        self._pipelines = ["ETL-CLINICAL-01", "ETL-BILLING-02", "ETL-LAB-03", "ETL-QUALITY-04"]
+        self._pipelines = [
+            "ETL-CLINICAL-01",
+            "ETL-BILLING-02",
+            "ETL-LAB-03",
+            "ETL-QUALITY-04",
+        ]
         self._stages = ["extract", "transform", "load", "validate"]
 
     def generate_telemetry(self) -> None:
@@ -38,10 +43,18 @@ class DataWarehouseService(BaseService):
 
         # Metrics
         self._etl_runs_completed += 1
-        self.emit_metric("warehouse.etl_runs_completed", float(self._etl_runs_completed), "runs")
-        rows_per_sec = random.randint(5000, 25000) if not active_channels else random.randint(100, 2000)
+        self.emit_metric(
+            "warehouse.etl_runs_completed", float(self._etl_runs_completed), "runs"
+        )
+        rows_per_sec = (
+            random.randint(5000, 25000)
+            if not active_channels
+            else random.randint(100, 2000)
+        )
         self.emit_metric("warehouse.etl_rows_per_second", float(rows_per_sec), "rows/s")
-        self.emit_metric("warehouse.storage_used_tb", round(random.uniform(8.0, 25.0), 1), "TB")
+        self.emit_metric(
+            "warehouse.storage_used_tb", round(random.uniform(8.0, 25.0), 1), "TB"
+        )
 
     def _emit_etl_progress(self) -> None:
         pipeline = random.choice(self._pipelines)
@@ -64,7 +77,9 @@ class DataWarehouseService(BaseService):
         )
 
     def _emit_audit_event(self) -> None:
-        action = random.choice(["PHI_ACCESS", "RECORD_EXPORT", "REPORT_GENERATE", "BULK_QUERY"])
+        action = random.choice(
+            ["PHI_ACCESS", "RECORD_EXPORT", "REPORT_GENERATE", "BULK_QUERY"]
+        )
         user = f"user-{random.randint(1000, 9999)}@hospital.org"
         records_accessed = random.randint(1, 500)
         self.emit_log(

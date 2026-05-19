@@ -16,8 +16,10 @@ from app.trace_context import _trace_context_store
 
 logger = logging.getLogger("nova7.services")
 
+
 def _get_scenario():
     from scenarios import get_scenario
+
     return get_scenario(ACTIVE_SCENARIO)
 
 
@@ -63,7 +65,8 @@ class BaseService(ABC):
             self._namespace = "nova7"
 
         self.resource = OTLPClient.build_resource(
-            self.SERVICE_NAME, self.service_cfg,
+            self.SERVICE_NAME,
+            self.service_cfg,
             namespace=self._namespace,
         )
 
@@ -187,8 +190,12 @@ class BaseService(ABC):
             attrs.update(extra_attrs)
         trace_id, span_id = _trace_context_store.get(self.SERVICE_NAME)
         record = self.otlp.build_log_record(
-            severity=level, body=message, attributes=attrs, event_name=event_name,
-            trace_id=trace_id, span_id=span_id,
+            severity=level,
+            body=message,
+            attributes=attrs,
+            event_name=event_name,
+            trace_id=trace_id,
+            span_id=span_id,
         )
         self.otlp.send_logs(self.resource, [record])
 
@@ -209,6 +216,7 @@ class BaseService(ABC):
         duration_ms: int = 50,
         extra_attrs: dict[str, Any] | None = None,
         status_code: int = 1,
+        events: list[dict[str, Any]] | None = None,
     ) -> None:
         trace_id = secrets.token_hex(16)
         span_id = secrets.token_hex(8)
@@ -222,6 +230,7 @@ class BaseService(ABC):
             duration_ms=duration_ms,
             attributes=attrs,
             status_code=status_code,
+            events=events,
         )
         self.otlp.send_traces(self.resource, [span])
 
@@ -229,9 +238,11 @@ class BaseService(ABC):
     def _safe_format(template: str, params: dict) -> str:
         """Format a template string, ignoring missing keys."""
         import string
+
         class SafeDict(dict):
             def __missing__(self, key):
                 return f"{{{key}}}"
+
         return string.Formatter().vformat(template, (), SafeDict(params))
 
     def emit_fault_logs(self, channel: int) -> None:
@@ -239,6 +250,9 @@ class BaseService(ABC):
         ch = self._channel_registry.get(channel)
         if not ch:
             return
+
+        # Emit one-shot infrastructure events (idempotent — tracked internally)
+        self.emit_infrastructure_events(channel)
 
         # Generate 2-4 error logs per cycle when channel is active
         for _ in range(random.randint(2, 4)):
@@ -271,11 +285,14 @@ class BaseService(ABC):
             ev_name = None
             if meta.get("callback_url") or meta.get("user_email"):
                 import json as _json
-                ev_name = _json.dumps({
-                    "callback_url": meta.get("callback_url", ""),
-                    "user_email": meta.get("user_email", ""),
-                    "deployment_id": self._ctx.scenario_id if self._ctx else "",
-                })
+
+                ev_name = _json.dumps(
+                    {
+                        "callback_url": meta.get("callback_url", ""),
+                        "user_email": meta.get("user_email", ""),
+                        "deployment_id": self._ctx.scenario_id if self._ctx else "",
+                    }
+                )
             self.emit_log("ERROR", msg, attrs, event_name=ev_name)
 
     def emit_cascade_logs(self, channel: int) -> None:
@@ -298,6 +315,52 @@ class BaseService(ABC):
             }
         )
         self.emit_log("WARN", random.choice(messages), attrs)
+
+    def emit_infrastructure_events(self, channel: int) -> None:
+        """Emit one-shot infrastructure/audit events when a channel fires.
+
+        Reads optional 'infrastructure_events' list from channel_registry entry.
+        Each event: {body, severity, event_name, attributes, service (optional)}.
+        Events are only emitted once per channel activation.
+        """
+        if not hasattr(self, "_infra_events_emitted"):
+            self._infra_events_emitted: set[tuple[int, int]] = set()
+
+        ch = self._channel_registry.get(channel)
+        if not ch:
+            return
+        infra_events = ch.get("infrastructure_events", [])
+        if not infra_events:
+            return
+
+        for idx, evt in enumerate(infra_events):
+            # Only emit for this service (or if no service filter specified)
+            evt_service = evt.get("service")
+            if evt_service and evt_service != self.SERVICE_NAME:
+                continue
+
+            key = (channel, idx)
+            if key in self._infra_events_emitted:
+                continue
+            self._infra_events_emitted.add(key)
+
+            attrs = self._base_log_attrs()
+            if evt.get("attributes"):
+                attrs.update(evt["attributes"])
+            attrs["chaos.channel"] = channel
+            attrs["infrastructure.event"] = True
+
+            self.emit_log(
+                evt.get("severity", "WARN"),
+                evt["body"],
+                attrs,
+                event_name=evt.get("event_name"),
+            )
+
+    def reset_infrastructure_events(self) -> None:
+        """Clear tracked infrastructure events (call on channel resolve)."""
+        if hasattr(self, "_infra_events_emitted"):
+            self._infra_events_emitted.clear()
 
     def _generate_fault_params(self, channel: int) -> dict[str, Any]:
         """Generate realistic random parameters for fault messages from scenario."""

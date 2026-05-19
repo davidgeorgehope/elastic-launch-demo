@@ -1,0 +1,152 @@
+version: "1"
+name: __SCENARIO_NAME__ SLO Management
+enabled: true
+description: >
+  Automatically evaluates all services and maintains SLOs with standard targets.
+  Runs every 24 hours. IDEMPOTENT: deletes existing Availability / Latency /
+  Error Rate SLOs, then recreates them fresh.
+  SLO targets: Availability 95%, Error Rate 95%, Latency 85% under 2s.
+
+triggers:
+  - type: scheduled
+    with:
+      every: "24h"
+  - type: manual
+
+steps:
+  - name: workflow-start
+    type: console
+    with:
+      message: "SLO Management Workflow starting. Execution: {{ execution.id }}. Timestamp: {{ now | date: '%Y-%m-%d %H:%M:%S UTC' }}."
+
+  - name: get-all-existing-slos
+    type: kibana.request
+    on-failure:
+      continue: true
+    with:
+      method: GET
+      path: /api/observability/slos?perPage=500
+      timeout: '60'
+      headers:
+        Content-Type: application/json
+        Accept: application/json
+        kbn-xsrf: 'true'
+
+  - name: loop_over_results
+    type: foreach
+    foreach: "{{steps.get-all-existing-slos.output.results}}"
+    on-failure:
+      continue: true
+    steps:
+      - name: check_SLOs
+        type: if
+        condition: "foreach.item.name : \"__SCENARIO_NAME__*\""
+        steps:
+          - name: print-results
+            type: console
+            with:
+              message: "Deleting {{foreach.item.name | uniq}}: {{foreach.item.id | uniq}}"
+          - name: delete-loop-slo
+            type: kibana.request
+            on-failure:
+              continue: true
+            with:
+              method: DELETE
+              path: /api/observability/slos/{{ foreach.item.id | uniq}}
+              headers:
+                kbn-xsrf: "true"
+        else:
+          - name: print-else-results
+            type: console
+            with:
+              message: "Skipping {{foreach.item.name | uniq}}"
+
+  - name: create-slo-availability
+    type: kibana.request
+    with:
+      method: POST
+      path: /api/observability/slos
+      body:
+        name: "__SCENARIO_NAME__: Availability SLO"
+        description: Service availability - 95% target, grouped by service name
+        indicator:
+          type: sli.kql.custom
+          params:
+            index: traces-apm*,traces-*.otel-*
+            good: NOT event.outcome:failure
+            filter: processor.event:transaction
+            total: "*"
+            timestampField: "@timestamp"
+        groupBy:
+          - service.name
+        budgetingMethod: occurrences
+        timeWindow:
+          duration: 7d
+          type: rolling
+        objective:
+          target: 0.95
+        tags: []
+      headers:
+        Content-Type: application/json
+        Accept: application/json
+        kbn-xsrf: "true"
+
+  - name: create-slo-latency
+    type: kibana.request
+    with:
+      method: POST
+      path: /api/observability/slos
+      body:
+        name: "__SCENARIO_NAME__: Latency SLO"
+        description: Service latency - 85% of requests under 2s, grouped by service name
+        indicator:
+          type: sli.kql.custom
+          params:
+            index: traces-apm*,traces-*.otel-*
+            filter: processor.event:transaction AND transaction.duration.us:*
+            good: transaction.duration.us <= 2000000
+            total: transaction.duration.us:*
+            timestampField: "@timestamp"
+        groupBy:
+          - service.name
+        budgetingMethod: occurrences
+        timeWindow:
+          duration: 7d
+          type: rolling
+        objective:
+          target: 0.85
+        tags: []
+      headers:
+        Content-Type: application/json
+        Accept: application/json
+        kbn-xsrf: "true"
+
+  - name: create-slo-error-rate
+    type: kibana.request
+    with:
+      method: POST
+      path: /api/observability/slos
+      body:
+        name: "__SCENARIO_NAME__: Error Rate SLO"
+        description: Service error rate - less than 5% errors, grouped by service name
+        indicator:
+          type: sli.kql.custom
+          params:
+            index: traces-apm*,traces-*.otel-*
+            filter: processor.event:transaction
+            good: NOT event.outcome:failure
+            total: "*"
+            timestampField: "@timestamp"
+        groupBy:
+          - service.name
+        budgetingMethod: occurrences
+        timeWindow:
+          duration: 7d
+          type: rolling
+        objective:
+          target: 0.95
+        tags: []
+      headers:
+        Content-Type: application/json
+        Accept: application/json
+        kbn-xsrf: "true"

@@ -37,10 +37,18 @@ class ImagingServiceService(BaseService):
 
         # Metrics
         self._studies_processed += 1
-        self.emit_metric("imaging.studies_processed", float(self._studies_processed), "studies")
-        transfer_ms = random.randint(200, 2000) if not active_channels else random.randint(8000, 30000)
+        self.emit_metric(
+            "imaging.studies_processed", float(self._studies_processed), "studies"
+        )
+        transfer_ms = (
+            random.randint(200, 2000)
+            if not active_channels
+            else random.randint(8000, 30000)
+        )
         self.emit_metric("imaging.transfer_latency_ms", float(transfer_ms), "ms")
-        self.emit_metric("imaging.pacs_storage_used_pct", round(random.uniform(60.0, 82.0), 1), "%")
+        self.emit_metric(
+            "imaging.pacs_storage_used_pct", round(random.uniform(60.0, 82.0), 1), "%"
+        )
 
     def _emit_study_transfer(self) -> None:
         modality = random.choice(self._modalities)

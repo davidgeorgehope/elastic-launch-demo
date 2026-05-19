@@ -17,7 +17,9 @@ class AuditLoggerService(BaseService):
         super().__init__(chaos_controller, otlp_client)
         self._events_logged = 0
         self._last_integrity_check = time.time()
-        self._sequence_counters = {s: random.randint(1000000, 5000000) for s in self.STREAMS}
+        self._sequence_counters = {
+            s: random.randint(1000000, 5000000) for s in self.STREAMS
+        }
 
     def generate_telemetry(self) -> None:
         # ── Fault injection ────────────────────────────────────
@@ -39,7 +41,9 @@ class AuditLoggerService(BaseService):
 
         # Metrics
         self._events_logged += 1
-        self.emit_metric("audit_logger.events_logged", float(self._events_logged), "events")
+        self.emit_metric(
+            "audit_logger.events_logged", float(self._events_logged), "events"
+        )
         self.emit_metric(
             "audit_logger.replication_lag_ms",
             float(random.randint(50, 800)),
@@ -55,10 +59,16 @@ class AuditLoggerService(BaseService):
         stream = random.choice(self.STREAMS)
         self._sequence_counters[stream] += 1
         seq = self._sequence_counters[stream]
-        event_type = random.choice([
-            "ORDER_NEW", "ORDER_CANCEL", "TRADE_EXEC",
-            "SETTLEMENT_INIT", "RISK_CHECK", "COMPLIANCE_ALERT",
-        ])
+        event_type = random.choice(
+            [
+                "ORDER_NEW",
+                "ORDER_CANCEL",
+                "TRADE_EXEC",
+                "SETTLEMENT_INIT",
+                "RISK_CHECK",
+                "COMPLIANCE_ALERT",
+            ]
+        )
         self.emit_log(
             "INFO",
             f"[AUDIT] event_logged stream={stream} seq={seq} type={event_type} status=COMMITTED",

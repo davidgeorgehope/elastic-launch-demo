@@ -5,12 +5,17 @@ from __future__ import annotations
 import random
 
 from app.services.base_service import BaseService
+from scenarios.gcp.executive_kpis import emit_executive_business_metrics_if_eligible
 
 
 class CloudCdnService(BaseService):
     SERVICE_NAME = "cloud-cdn-service"
 
-    BACKENDS = ["gcpnet-cdn-backend-01", "gcpnet-cdn-backend-02", "gcpnet-cdn-backend-03"]
+    BACKENDS = [
+        "gcpnet-cdn-backend-01",
+        "gcpnet-cdn-backend-02",
+        "gcpnet-cdn-backend-03",
+    ]
     CACHE_MODES = ["CACHE_ALL_STATIC", "USE_ORIGIN_HEADERS", "FORCE_CACHE_ALL"]
 
     def generate_telemetry(self) -> None:
@@ -25,8 +30,16 @@ class CloudCdnService(BaseService):
 
         # -- Cache hit ratio --
         backend = random.choice(self.BACKENDS)
-        hit_ratio = round(random.uniform(80.0, 98.0), 1) if not active_channels else round(random.uniform(15.0, 45.0), 1)
-        miss_rate = random.randint(50, 200) if not active_channels else random.randint(500, 5000)
+        hit_ratio = (
+            round(random.uniform(80.0, 98.0), 1)
+            if not active_channels
+            else round(random.uniform(15.0, 45.0), 1)
+        )
+        miss_rate = (
+            random.randint(50, 200)
+            if not active_channels
+            else random.randint(500, 5000)
+        )
         self.emit_metric("cdn.cache_hit_ratio", hit_ratio, "%")
         self.emit_metric("cdn.cache_miss_rate", float(miss_rate), "req/s")
 
@@ -43,8 +56,14 @@ class CloudCdnService(BaseService):
         )
 
         # -- Origin latency --
-        origin_latency = round(random.uniform(10.0, 50.0), 1) if not active_channels else round(random.uniform(200.0, 2000.0), 1)
-        origin_errors = random.randint(0, 2) if not active_channels else random.randint(50, 500)
+        origin_latency = (
+            round(random.uniform(10.0, 50.0), 1)
+            if not active_channels
+            else round(random.uniform(200.0, 2000.0), 1)
+        )
+        origin_errors = (
+            random.randint(0, 2) if not active_channels else random.randint(50, 500)
+        )
         self.emit_metric("cdn.origin_latency_ms", origin_latency, "ms")
         self.emit_metric("cdn.origin_errors", float(origin_errors), "errors")
 
@@ -88,3 +107,5 @@ class CloudCdnService(BaseService):
                 "cdn.cache_fill_pct": cache_fill_pct,
             },
         )
+
+        emit_executive_business_metrics_if_eligible(self)

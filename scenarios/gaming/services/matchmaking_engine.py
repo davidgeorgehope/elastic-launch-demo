@@ -36,11 +36,21 @@ class MatchmakingEngineService(BaseService):
             self._last_queue_report = time.time()
 
         # Metrics
-        queue_depth = random.randint(200, 3000) if not active_channels else random.randint(8000, 50000)
+        queue_depth = (
+            random.randint(200, 3000)
+            if not active_channels
+            else random.randint(8000, 50000)
+        )
         self.emit_metric("matchmaking.queue_depth", float(queue_depth), "players")
-        avg_wait = random.uniform(8.0, 30.0) if not active_channels else random.uniform(60.0, 300.0)
+        avg_wait = (
+            random.uniform(8.0, 30.0)
+            if not active_channels
+            else random.uniform(60.0, 300.0)
+        )
         self.emit_metric("matchmaking.avg_wait_time_s", round(avg_wait, 1), "s")
-        self.emit_metric("matchmaking.matches_formed", float(self._matches_formed), "matches")
+        self.emit_metric(
+            "matchmaking.matches_formed", float(self._matches_formed), "matches"
+        )
 
     def _emit_match_formed(self) -> None:
         self._matches_formed += 1

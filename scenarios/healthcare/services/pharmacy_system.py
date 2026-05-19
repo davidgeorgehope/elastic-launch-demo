@@ -16,9 +16,14 @@ class PharmacySystemService(BaseService):
         self._orders_dispensed = 0
         self._last_formulary_check = time.time()
         self._medications = [
-            "Metoprolol 50mg", "Lisinopril 10mg", "Heparin 5000u",
-            "Vancomycin 1g", "Morphine 4mg", "Ondansetron 4mg",
-            "Ceftriaxone 1g", "Pantoprazole 40mg",
+            "Metoprolol 50mg",
+            "Lisinopril 10mg",
+            "Heparin 5000u",
+            "Vancomycin 1g",
+            "Morphine 4mg",
+            "Ondansetron 4mg",
+            "Ceftriaxone 1g",
+            "Pantoprazole 40mg",
         ]
 
     def generate_telemetry(self) -> None:
@@ -41,10 +46,20 @@ class PharmacySystemService(BaseService):
 
         # Metrics
         self._orders_dispensed += 1
-        self.emit_metric("pharmacy.orders_dispensed", float(self._orders_dispensed), "orders")
-        interaction_queue = random.randint(2, 15) if not active_channels else random.randint(80, 400)
-        self.emit_metric("pharmacy.interaction_queue_depth", float(interaction_queue), "checks")
-        self.emit_metric("pharmacy.formulary_compliance_pct", round(random.uniform(95.0, 99.8), 1), "%")
+        self.emit_metric(
+            "pharmacy.orders_dispensed", float(self._orders_dispensed), "orders"
+        )
+        interaction_queue = (
+            random.randint(2, 15) if not active_channels else random.randint(80, 400)
+        )
+        self.emit_metric(
+            "pharmacy.interaction_queue_depth", float(interaction_queue), "checks"
+        )
+        self.emit_metric(
+            "pharmacy.formulary_compliance_pct",
+            round(random.uniform(95.0, 99.8), 1),
+            "%",
+        )
 
     def _emit_dispense_event(self) -> None:
         med = random.choice(self._medications)

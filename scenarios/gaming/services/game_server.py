@@ -37,9 +37,13 @@ class GameServerService(BaseService):
             self._last_perf_report = time.time()
 
         # Metrics
-        tick_rate = 64.0 if not active_channels else round(random.uniform(18.0, 45.0), 1)
+        tick_rate = (
+            64.0 if not active_channels else round(random.uniform(18.0, 45.0), 1)
+        )
         self.emit_metric("game_server.tick_rate", tick_rate, "Hz")
-        self.emit_metric("game_server.active_matches", float(self._active_matches), "matches")
+        self.emit_metric(
+            "game_server.active_matches", float(self._active_matches), "matches"
+        )
         connected = self._active_matches * random.randint(4, 10)
         self.emit_metric("game_server.connected_players", float(connected), "players")
         frame_time = round(1000.0 / max(tick_rate, 1), 1)

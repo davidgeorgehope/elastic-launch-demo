@@ -95,19 +95,19 @@ pip install -r requirements.txt
 The app runs as a single Python process:
 
 ```bash
-sudo python3 -m uvicorn app.main:app --host 0.0.0.0 --port 80
+python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8080
 ```
 
 To run in the background:
 
 ```bash
-sudo nohup python3 -m uvicorn app.main:app --host 0.0.0.0 --port 80 &
+nohup python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8080 &
 ```
 
 Verify it is running:
 
 ```bash
-curl http://localhost/health
+curl http://localhost:8080/health
 ```
 
 Expected response:
@@ -115,7 +115,7 @@ Expected response:
 {"status": "ok"}
 ```
 
-> **Note:** The app runs on port 80 (requires root/sudo). There is no hot-reload — restart the process after code changes by killing the existing process and re-launching.
+> **Note:** The app runs on port 8080. There is no hot-reload — restart the process after code changes by killing the existing process and re-launching.
 
 ---
 

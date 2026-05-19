@@ -39,7 +39,9 @@ class ComplianceMonitorService(BaseService):
 
         # Metrics
         self._screenings_total += 1
-        self.emit_metric("compliance.screenings_total", float(self._screenings_total), "screenings")
+        self.emit_metric(
+            "compliance.screenings_total", float(self._screenings_total), "screenings"
+        )
         self.emit_metric(
             "compliance.aml_latency_ms",
             float(random.randint(50, 500)),

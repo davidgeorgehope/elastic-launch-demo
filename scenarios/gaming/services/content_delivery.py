@@ -16,7 +16,13 @@ class ContentDeliveryService(BaseService):
         self._assets_served = 0
         self._last_cdn_report = time.time()
         self._edge_nodes = ["edge-iad-01", "edge-lax-02", "edge-fra-01", "edge-nrt-01"]
-        self._asset_types = ["textures-hd", "models-characters", "audio-sfx", "maps-terrain", "shaders"]
+        self._asset_types = [
+            "textures-hd",
+            "models-characters",
+            "audio-sfx",
+            "maps-terrain",
+            "shaders",
+        ]
 
     def generate_telemetry(self) -> None:
         # ── Fault injection ────────────────────────────────────
@@ -37,7 +43,11 @@ class ContentDeliveryService(BaseService):
             self._last_cdn_report = time.time()
 
         # Metrics
-        hit_rate = round(random.uniform(92.0, 99.5), 1) if not active_channels else round(random.uniform(30.0, 70.0), 1)
+        hit_rate = (
+            round(random.uniform(92.0, 99.5), 1)
+            if not active_channels
+            else round(random.uniform(30.0, 70.0), 1)
+        )
         self.emit_metric("cdn.cache_hit_rate", hit_rate, "%")
         bandwidth = round(random.uniform(500.0, 5000.0), 1)
         self.emit_metric("cdn.bandwidth_mbps", bandwidth, "Mbps")

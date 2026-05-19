@@ -16,8 +16,13 @@ class ClinicalAlertsService(BaseService):
         self._alerts_processed = 0
         self._last_cds_report = time.time()
         self._alert_types = [
-            "critical_lab", "vital_sign", "drug_interaction",
-            "fall_risk", "sepsis_screen", "nurse_call", "code_blue",
+            "critical_lab",
+            "vital_sign",
+            "drug_interaction",
+            "fall_risk",
+            "sepsis_screen",
+            "nurse_call",
+            "code_blue",
         ]
 
     def generate_telemetry(self) -> None:
@@ -40,10 +45,18 @@ class ClinicalAlertsService(BaseService):
 
         # Metrics
         self._alerts_processed += 1
-        self.emit_metric("clinical_alerts.alerts_processed", float(self._alerts_processed), "alerts")
-        eval_ms = random.randint(50, 500) if not active_channels else random.randint(3000, 12000)
+        self.emit_metric(
+            "clinical_alerts.alerts_processed", float(self._alerts_processed), "alerts"
+        )
+        eval_ms = (
+            random.randint(50, 500)
+            if not active_channels
+            else random.randint(3000, 12000)
+        )
         self.emit_metric("clinical_alerts.rule_eval_ms", float(eval_ms), "ms")
-        self.emit_metric("clinical_alerts.active_rules", float(random.randint(200, 350)), "rules")
+        self.emit_metric(
+            "clinical_alerts.active_rules", float(random.randint(200, 350)), "rules"
+        )
 
     def _emit_alert_event(self) -> None:
         alert_type = random.choice(self._alert_types)

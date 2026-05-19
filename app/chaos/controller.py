@@ -7,7 +7,7 @@ import threading
 import time
 from typing import TYPE_CHECKING, Any
 
-from app.config import CHANNEL_REGISTRY
+from app.config import CHANNEL_REGISTRY, CHANNEL_TIMEOUT
 
 if TYPE_CHECKING:
     from app.store import ChaosStore
@@ -19,8 +19,8 @@ STANDBY = "STANDBY"
 ACTIVE = "ACTIVE"
 RESOLVING = "RESOLVING"
 
-# Maximum fault duration (seconds)
-MAX_FAULT_DURATION = 3600  # 1 hour
+# Maximum fault duration (seconds) — override via CHANNEL_TIMEOUT in .env
+MAX_FAULT_DURATION = CHANNEL_TIMEOUT
 
 
 class ChaosController:
@@ -78,6 +78,26 @@ class ChaosController:
             restored = sum(1 for r in rows if r["state"] == ACTIVE)
             if restored:
                 logger.info("Restored %d active chaos channels from SQLite", restored)
+                # Recalculate infra spikes from restored ACTIVE channels so that
+                # CPU/memory/latency effects survive an app crash and restart.
+                self._infra_spikes = {
+                    k: (1.0 if k == "latency_multiplier" else 0.0)
+                    for k in self._infra_spikes
+                }
+                for ch_id, ch in self._channels.items():
+                    if ch["state"] == ACTIVE:
+                        impact = self._channel_registry.get(ch_id, {}).get("infra_impact", {})
+                        for key, val in impact.items():
+                            if key in self._infra_spikes:
+                                self._infra_spikes[key] = max(self._infra_spikes[key], float(val))
+            # Overlay any manually-set spike values persisted via the sliders
+            persisted_spikes = self._store.get_spikes(self._deployment_id)
+            if persisted_spikes:
+                for key in self._infra_spikes:
+                    if key in persisted_spikes and persisted_spikes[key] is not None:
+                        self._infra_spikes[key] = max(
+                            self._infra_spikes[key], float(persisted_spikes[key])
+                        )
         except Exception:
             logger.exception("Failed to restore chaos channels from SQLite")
 
@@ -110,13 +130,27 @@ class ChaosController:
         # Write-through to SQLite
         if self._store and self._deployment_id:
             self._store.upsert_channel(
-                self._deployment_id, channel,
-                state=ACTIVE, mode=mode, se_name=se_name,
-                session_id=session_id, triggered_at=ch["triggered_at"],
-                callback_url=callback_url, user_email=user_email,
+                self._deployment_id,
+                channel,
+                state=ACTIVE,
+                mode=mode,
+                se_name=se_name,
+                session_id=session_id,
+                triggered_at=ch["triggered_at"],
+                callback_url=callback_url,
+                user_email=user_email,
             )
 
         ch_def = self._channel_registry[channel]
+
+        # Auto-apply infrastructure spikes from channel definition
+        infra_impact = ch_def.get("infra_impact")
+        if infra_impact:
+            with self._lock:
+                for key, val in infra_impact.items():
+                    if key in self._infra_spikes:
+                        self._infra_spikes[key] = max(self._infra_spikes[key], float(val))
+
         logger.info(
             "CHAOS: Channel %d [%s] ACTIVATED (mode=%s, session=%s)",
             channel,
@@ -136,6 +170,7 @@ class ChaosController:
         channel: int,
         session_id: str = "",
         force: bool = False,
+        user_email: str = "",
     ) -> dict[str, Any]:
         if channel not in self._channel_registry:
             return {"error": f"Unknown channel {channel}"}
@@ -145,9 +180,12 @@ class ChaosController:
             if ch["state"] == STANDBY:
                 return {"status": "already_standby", "channel": channel}
 
-            # Session ownership check (skip if force=True or no session tracking)
-            if not force and session_id and ch["session_id"] and ch["session_id"] != session_id:
-                return {"error": "session_mismatch", "channel": channel}
+            # Session ownership check (skip if force=True or channel has no owner)
+            if not force and ch["session_id"]:
+                session_matches = session_id and ch["session_id"] == session_id
+                email_matches = user_email and ch.get("user_email") and ch["user_email"] == user_email
+                if not session_matches and not email_matches:
+                    return {"error": "session_mismatch", "channel": channel}
 
             ch["state"] = STANDBY
             ch["mode"] = None
@@ -156,10 +194,14 @@ class ChaosController:
             ch["callback_url"] = ""
             ch["user_email"] = ""
 
-            # Reset infra spikes if no faults remain active
-            any_active = any(c["state"] == ACTIVE for c in self._channels.values())
-            if not any_active:
-                self._infra_spikes = {k: (1.0 if k == "latency_multiplier" else 0) for k in self._infra_spikes}
+            # Recalculate infra spikes from remaining active channels
+            self._infra_spikes = {k: (1.0 if k == "latency_multiplier" else 0) for k in self._infra_spikes}
+            for ch_id, c in self._channels.items():
+                if c["state"] == ACTIVE:
+                    impact = self._channel_registry.get(ch_id, {}).get("infra_impact", {})
+                    for key, val in impact.items():
+                        if key in self._infra_spikes:
+                            self._infra_spikes[key] = max(self._infra_spikes[key], float(val))
 
         # Write-through to SQLite
         if self._store and self._deployment_id:
@@ -221,6 +263,7 @@ class ChaosController:
                     "mode": ch_state["mode"],
                     "triggered_at": ch_state["triggered_at"],
                     "session_id": ch_state["session_id"],
+                    "user_email": ch_state.get("user_email", ""),
                     "affected_services": ch_def["affected_services"],
                     "description": ch_def["description"],
                 }
@@ -262,24 +305,32 @@ class ChaosController:
                 "user_email": ch.get("user_email", ""),
             }
 
-    def validate_session(self, session_id: str) -> list[int]:
-        """Return list of channel IDs owned by this session_id."""
+    def validate_session(self, session_id: str, user_email: str = "") -> list[int]:
+        """Return list of channel IDs owned by this session_id or user_email."""
         with self._lock:
             self._expire_stale()
             return [
-                ch_id for ch_id, ch in self._channels.items()
-                if ch["state"] == ACTIVE and ch["session_id"] == session_id
+                ch_id
+                for ch_id, ch in self._channels.items()
+                if ch["state"] == ACTIVE and (
+                    ch["session_id"] == session_id
+                    or (user_email and ch.get("user_email") and ch["user_email"] == user_email)
+                )
             ]
 
     def get_active_channels(self) -> list[int]:
         with self._lock:
-            return [ch_id for ch_id, ch in self._channels.items() if ch["state"] == ACTIVE]
+            return [
+                ch_id for ch_id, ch in self._channels.items() if ch["state"] == ACTIVE
+            ]
 
     def set_infra_spikes(self, spikes: dict[str, float]) -> None:
         with self._lock:
             for key in self._infra_spikes:
                 if key in spikes:
                     self._infra_spikes[key] = float(spikes[key])
+        if self._store and self._deployment_id:
+            self._store.upsert_spikes(self._deployment_id, self._infra_spikes)
 
     def get_infra_spikes(self) -> dict[str, float]:
         with self._lock:

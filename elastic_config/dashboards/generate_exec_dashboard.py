@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
 """
-Generate an Executive Dashboard NDJSON file compatible with Kibana 9.4.
+Generate Kibana dashboard NDJSON (compatible with Kibana 9.4+).
 
 Can be used as:
   - Importable function: generate_dashboard_ndjson(scenario) -> str
   - Standalone script: python3 generate_exec_dashboard.py  (defaults to space scenario)
+
+Primary output: **Systems Operations Dashboard** (saved object id `{namespace}-exec-dashboard`)
+— telemetry, RED/USE, APM, and significant events.
+
+Also emits a second saved object, **Executive Dashboard** (id `{namespace}-business-exec-dashboard`),
+when the scenario defines `executive_kpi_emitter_service_name`. Synthetic `business.*` OTLP gauges
+are emitted once per cycle from that service (`scenarios/{name}/executive_kpis.py`).
 
 Produces by-value Lens panels using the formBased datasource format that matches
 the built-in [OTel] dashboards shipped with Kibana 9.4, including all required
@@ -360,7 +367,11 @@ def generate_dashboard_ndjson(scenario) -> str:
         for ch in scenario.channel_registry.values()
     ]
 
-    return _build_dashboard_ndjson(scenario_name, namespace, cloud_groups, dashboard_id, error_types)
+    main = _build_dashboard_ndjson(
+        scenario_name, namespace, cloud_groups, dashboard_id, error_types
+    )
+    biz = _build_business_executive_dashboard_ndjson(scenario)
+    return main + biz if biz else main
 
 
 def _build_dashboard_ndjson(
@@ -371,6 +382,9 @@ def _build_dashboard_ndjson(
     error_types: "list[str] | None" = None,
 ) -> str:
     """Build the full dashboard NDJSON from parameters."""
+    # Override the module-level constant so panels reference the deployed data view
+    DATA_VIEW_ID_LOGS = f"logs.otel.{namespace}"
+
     TILE_WIDTH = 5
 
     panels = []
@@ -1070,7 +1084,7 @@ def _build_dashboard_ndjson(
         esql_where = 'severity_text == "ERROR"'
 
     esql_query = (
-        f"FROM logs.otel,logs.otel.* "
+        f"FROM logs.otel.{namespace},logs.otel.{namespace}.* "
         f"| WHERE {esql_where} "
         f"| KEEP body.text, trace.id, span.id, service.name, @timestamp "
         f"| SORT @timestamp DESC "
@@ -1162,7 +1176,7 @@ def _build_dashboard_ndjson(
     dashboard = {
         "attributes": {
             "description": (
-                f"Executive overview of {scenario_name} telemetry \u2014 "
+                f"Systems operations view for {scenario_name} \u2014 "
                 f"service health, APM, NGINX, VPC flows, K8s cluster health "
                 f"across AWS/GCP/Azure"
             ),
@@ -1175,6 +1189,180 @@ def _build_dashboard_ndjson(
             "panelsJSON": json.dumps(panels),
             "refreshInterval": {"pause": False, "value": 10000},
             "timeFrom": "now-2m",
+            "timeRestore": True,
+            "timeTo": "now",
+            "title": f"{scenario_name} Systems Operations Dashboard",
+        },
+        "coreMigrationVersion": "8.8.0",
+        "id": dashboard_id,
+        "managed": False,
+        "references": all_refs,
+        "type": "dashboard",
+        "typeMigrationVersion": "10.3.0",
+    }
+
+    return json.dumps(dashboard, separators=(",", ":")) + "\n"
+
+
+def _build_business_executive_dashboard_ndjson(scenario) -> str:
+    """Second saved object: `{namespace}-business-exec-dashboard` for senior-leadership KPIs."""
+    svc = getattr(scenario, "executive_kpi_emitter_service_name", None)
+    if not svc:
+        return ""
+
+    scenario_name = scenario.scenario_name
+    namespace = scenario.namespace
+    dashboard_id = f"{namespace}-business-exec-dashboard"
+    svc_kql = f'resource.attributes.service.name: "{svc}"'
+    intro = scenario.executive_dashboard_intro
+
+    panels: list[dict] = []
+
+    def _eb_metric_tile(panel_index: str, x: int, y: int, w: int, title: str, source_field: str):
+        lid = uid()
+        cid = uid()
+        columns = {cid: col_average(source_field, label=title)}
+        layer = make_layer(lid, [cid], columns, DATA_VIEW_ID_METRICS)
+        state = make_state(
+            layer,
+            {
+                "layerId": lid,
+                "layerType": "data",
+                "metricAccessor": cid,
+                "color": "#00BFB3",
+                "subtitle": svc,
+            },
+            query=svc_kql,
+        )
+        panels.append(
+            make_panel(
+                panel_index,
+                {"h": 5, "i": panel_index, "w": w, "x": x, "y": y},
+                title,
+                "lnsMetric",
+                state,
+                [make_ref(DATA_VIEW_ID_METRICS, lid)],
+            )
+        )
+
+    def _eb_line_chart(panel_index: str, x: int, y: int, w: int, h: int, chart_title: str, metric_field: str, y_label: str):
+        lid = uid()
+        cid_x = uid()
+        cid_y = uid()
+        cid_split = uid()
+        columns = {
+            cid_x: col_date_histogram("30s"),
+            cid_y: col_average(metric_field, label=y_label),
+            cid_split: col_terms(
+                "resource.attributes.service.name",
+                "Service",
+                size=5,
+                order_col_id=cid_y,
+            ),
+        }
+        layer = make_layer(lid, [cid_x, cid_split, cid_y], columns, DATA_VIEW_ID_METRICS)
+        state = make_state(
+            layer,
+            {
+                "legend": {"isVisible": True, "position": "right"},
+                "valueLabels": "hide",
+                "fittingFunction": "None",
+                "preferredSeriesType": "line",
+                "layers": [
+                    {
+                        "layerId": lid,
+                        "layerType": "data",
+                        "seriesType": "line",
+                        "accessors": [cid_y],
+                        "xAccessor": cid_x,
+                        "splitAccessor": cid_split,
+                    }
+                ],
+            },
+            query=svc_kql,
+        )
+        panels.append(
+            make_panel(
+                panel_index,
+                {"h": h, "i": panel_index, "w": w, "x": x, "y": y},
+                chart_title,
+                "lnsXY",
+                state,
+                [make_ref(DATA_VIEW_ID_METRICS, lid)],
+            )
+        )
+
+    panels.append(
+        {
+            "type": "DASHBOARD_MARKDOWN",
+            "embeddableConfig": {"content": intro},
+            "panelIndex": "eb_intro",
+            "gridData": {"h": 3, "i": "eb_intro", "w": 48, "x": 0, "y": 0},
+        }
+    )
+
+    # Six-wide KPI rows (48 / 6 = 8) — col_average over the dashboard time window reduces empty tiles
+    kw = 8
+
+    def _kpi_row(y_row: int, specs: list[tuple[str, str]]):
+        for i, (title, field) in enumerate(specs):
+            _eb_metric_tile(f"eb_k_{y_row}_{i}", i * kw, y_row, kw, title, field)
+
+    # KPI sections — defined per-scenario via executive_kpi_sections
+    kpi_sections = getattr(scenario, "executive_kpi_sections", [])
+    section_y = 3
+    for s_idx, section in enumerate(kpi_sections):
+        h_pid = f"eb_h{s_idx + 1}"
+        panels.append(
+            {
+                "type": "DASHBOARD_MARKDOWN",
+                "embeddableConfig": {"content": section["header"]},
+                "panelIndex": h_pid,
+                "gridData": {"h": 2, "i": h_pid, "w": 48, "x": 0, "y": section_y},
+            }
+        )
+        _kpi_row(section_y + 2, section["specs"])
+        section_y += 7  # 2 header + 5 tile row
+
+    # Trend charts — defined per-scenario via executive_trend_charts (6, laid out 3x2)
+    trend_specs = getattr(scenario, "executive_trend_charts", [])
+    y_charts = section_y
+    ch = 11
+    w3 = 16
+    positions = [
+        (0, y_charts), (w3, y_charts), (2 * w3, y_charts),
+        (0, y_charts + ch), (w3, y_charts + ch), (2 * w3, y_charts + ch),
+    ]
+    for t_idx, (chart, (cx, cy)) in enumerate(zip(trend_specs, positions)):
+        _eb_line_chart(
+            f"eb_ts_{t_idx}",
+            cx, cy, w3, ch,
+            chart["title"],
+            chart["field"],
+            chart["y_label"],
+        )
+
+    all_refs: list[dict] = []
+    seen_ref_names: set[str] = set()
+    for panel in panels:
+        attrs = panel.get("embeddableConfig", {}).get("attributes", {})
+        refs = attrs.get("references", [])
+        for ref in refs:
+            if ref["name"] not in seen_ref_names:
+                all_refs.append(ref)
+                seen_ref_names.add(ref["name"])
+
+    dashboard = {
+        "attributes": {
+            "description": intro,
+            "kibanaSavedObjectMeta": {
+                "searchSourceJSON": json.dumps(
+                    {"query": {"language": "kuery", "query": ""}, "filter": []}
+                ),
+            },
+            "panelsJSON": json.dumps(panels),
+            "refreshInterval": {"pause": False, "value": 10000},
+            "timeFrom": "now-15m",
             "timeRestore": True,
             "timeTo": "now",
             "title": f"{scenario_name} Executive Dashboard",
@@ -1214,4 +1402,6 @@ if __name__ == "__main__":
 
     print(f"Wrote {output_path}")
     print(f"  Scenario: {scenario.scenario_name}")
-    print(f"  Dashboard ID: {scenario.namespace}-exec-dashboard")
+    print(f"  Systems operations dashboard ID: {scenario.namespace}-exec-dashboard")
+    if getattr(scenario, "executive_kpi_emitter_service_name", None):
+        print(f"  Executive dashboard ID: {scenario.namespace}-business-exec-dashboard")

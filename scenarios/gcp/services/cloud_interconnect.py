@@ -30,9 +30,15 @@ class CloudInterconnectService(BaseService):
 
         # -- Circuit status --
         attachment = random.choice(self.ATTACHMENTS)
-        link_status = "UP" if not active_channels else random.choice(["DOWN", "FLAPPING"])
+        link_status = (
+            "UP" if not active_channels else random.choice(["DOWN", "FLAPPING"])
+        )
         bandwidth_gbps = random.choice([10, 100])
-        utilization_pct = round(random.uniform(20.0, 70.0), 1) if not active_channels else round(random.uniform(85.0, 99.0), 1)
+        utilization_pct = (
+            round(random.uniform(20.0, 70.0), 1)
+            if not active_channels
+            else round(random.uniform(85.0, 99.0), 1)
+        )
 
         self.emit_metric("interconnect.bandwidth_gbps", float(bandwidth_gbps), "Gbps")
         self.emit_metric("interconnect.utilization_pct", utilization_pct, "%")
@@ -55,10 +61,18 @@ class CloudInterconnectService(BaseService):
         if time.time() - self._last_bgp_check > 10:
             peer_ip = f"169.254.{random.randint(0,255)}.{random.randint(1,254)}"
             peer_asn = random.choice([16550, 64512, 64513])
-            bgp_state = "ESTABLISHED" if not active_channels else random.choice(["IDLE", "ACTIVE", "CONNECT"])
-            advertised_routes = random.randint(20, 100) if not active_channels else random.randint(0, 5)
+            bgp_state = (
+                "ESTABLISHED"
+                if not active_channels
+                else random.choice(["IDLE", "ACTIVE", "CONNECT"])
+            )
+            advertised_routes = (
+                random.randint(20, 100) if not active_channels else random.randint(0, 5)
+            )
 
-            self.emit_metric("interconnect.bgp_advertised_routes", float(advertised_routes), "routes")
+            self.emit_metric(
+                "interconnect.bgp_advertised_routes", float(advertised_routes), "routes"
+            )
 
             self.emit_log(
                 "INFO",

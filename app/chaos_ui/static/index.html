@@ -7,18 +7,18 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Space+Mono:wght@400;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/chaos/static/style.css">
+    <link rel="stylesheet" href="/chaos/static/style.css?v=13">
     <!--THEME_CSS-->
 </head>
 <body>
     <header class="chaos-header">
-        <div class="header-left">
-            <span class="header-prefix">SCENARIO_NAME_PLACEHOLDER</span>
-            <span class="header-title">CHAOS_TITLE_PLACEHOLDER</span>
+        <div class="header-center">
+            <div class="header-scenario">SCENARIO_NAME_PLACEHOLDER</div>
+            <div class="header-title">CHAOS_TITLE_PLACEHOLDER</div>
+            <div class="header-accent"></div>
         </div>
         <div class="header-nav">
             <a href="javascript:history.back()" class="nav-link">&#8592; BACK</a>
-            <a href="/dashboard" class="nav-link" id="nav-dashboard">DASHBOARD</a>
         </div>
     </header>
 
@@ -115,10 +115,9 @@
                 <div class="no-active">No active faults</div>
             </div>
         </section>
-    </div>
 
-    <!-- Infrastructure Spikes Panel -->
-    <section class="spikes-panel">
+        <!-- Infrastructure Spikes Panel -->
+        <section class="spikes-panel">
         <div class="panel-title">INFRASTRUCTURE SPIKES</div>
         <div class="spikes-grid">
             <div class="spike-control">
@@ -153,18 +152,15 @@
         <div class="spikes-note">
             Spikes target infrastructure of active fault channels. With no faults active, all hosts/clusters are affected.
         </div>
-    </section>
+        </section>
+    </div>
 
     <script>
         window.SCENARIO_NAMESPACE = 'NAMESPACE_PLACEHOLDER';
         window.DEPLOYMENT_ID = 'DEPLOYMENT_ID_PLACEHOLDER';
-        (function() {
-            var did = window.DEPLOYMENT_ID;
-            if (!did) return;
-            var link = document.getElementById('nav-dashboard');
-            if (link) link.href = '/dashboard?deployment_id=' + encodeURIComponent(did);
-        })();
+        window.KIBANA_URL = 'KIBANA_URL_PLACEHOLDER';
+        window.CHANNEL_TIMEOUT = CHANNEL_TIMEOUT_PLACEHOLDER;
     </script>
-    <script src="/chaos/static/app.js"></script>
+    <script src="/chaos/static/app.js?v=4"></script>
 </body>
 </html>

@@ -6,6 +6,7 @@ import random
 import time
 
 from app.services.base_service import BaseService
+from scenarios.financial.executive_kpis import emit_executive_business_metrics_if_eligible
 
 
 class RiskCalculatorService(BaseService):
@@ -44,7 +45,9 @@ class RiskCalculatorService(BaseService):
 
         # Metrics
         self._risk_checks += 1
-        self.emit_metric("risk_calculator.risk_checks", float(self._risk_checks), "checks")
+        self.emit_metric(
+            "risk_calculator.risk_checks", float(self._risk_checks), "checks"
+        )
         self.emit_metric(
             "risk_calculator.var_95",
             round(random.uniform(5.0, 25.0), 2),
@@ -55,6 +58,8 @@ class RiskCalculatorService(BaseService):
             round(random.uniform(40.0, 85.0), 1),
             "%",
         )
+
+        emit_executive_business_metrics_if_eligible(self)
 
     def _emit_risk_check(self) -> None:
         desk_name = random.choice(list(self.DESKS.keys()))

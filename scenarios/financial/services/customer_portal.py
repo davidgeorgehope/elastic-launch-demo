@@ -37,7 +37,9 @@ class CustomerPortalService(BaseService):
         # Metrics
         self._active_sessions += random.randint(-5, 5)
         self._active_sessions = max(100, self._active_sessions)
-        self.emit_metric("customer_portal.active_sessions", float(self._active_sessions), "sessions")
+        self.emit_metric(
+            "customer_portal.active_sessions", float(self._active_sessions), "sessions"
+        )
         self.emit_metric(
             "customer_portal.page_load_ms",
             float(random.randint(50, 300)),
@@ -45,15 +47,25 @@ class CustomerPortalService(BaseService):
         )
         self.emit_metric(
             "customer_portal.api_error_rate",
-            round(random.uniform(0.01, 0.5), 3) if not active_channels else round(random.uniform(2.0, 10.0), 3),
+            (
+                round(random.uniform(0.01, 0.5), 3)
+                if not active_channels
+                else round(random.uniform(2.0, 10.0), 3)
+            ),
             "%",
         )
 
     def _emit_client_action(self) -> None:
-        action = random.choice([
-            "view_portfolio", "place_order", "check_positions",
-            "view_pnl", "market_data_stream", "download_statement",
-        ])
+        action = random.choice(
+            [
+                "view_portfolio",
+                "place_order",
+                "check_positions",
+                "view_pnl",
+                "market_data_stream",
+                "download_statement",
+            ]
+        )
         latency_ms = random.randint(20, 200)
         self.emit_log(
             "INFO",

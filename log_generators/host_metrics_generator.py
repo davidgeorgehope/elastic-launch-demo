@@ -177,28 +177,49 @@ PROCESS_TEMPLATES = [
     },
 ]
 
+
 # ── Host definitions from active scenario ─────────────────────────────────────
-def _load_hosts():
+def _load_hosts_and_clusters():
     from scenarios import get_scenario
-    return get_scenario(ACTIVE_SCENARIO).hosts
 
-HOSTS = _load_hosts()
+    scn = get_scenario(ACTIVE_SCENARIO)
+    cluster_by_provider = {c["provider"]: c["name"] for c in scn.k8s_clusters}
+    return scn.hosts, cluster_by_provider
 
+
+HOSTS, CLUSTER_BY_PROVIDER = _load_hosts_and_clusters()
 
 
 def _build_host_resource(host_cfg: dict) -> dict:
     """Build OTLP resource for a host with all required Infrastructure UI attributes."""
     attrs = {}
     for key in [
-        "host.name", "host.id", "host.arch", "host.type", "host.image.id",
-        "host.cpu.model.name", "host.cpu.vendor.id", "host.cpu.family",
-        "host.cpu.model.id", "host.cpu.stepping", "host.cpu.cache.l2.size",
-        "os.type", "os.description",
-        "cloud.provider", "cloud.platform", "cloud.region",
-        "cloud.availability_zone", "cloud.account.id", "cloud.instance.id",
+        "host.name",
+        "host.id",
+        "host.arch",
+        "host.type",
+        "host.image.id",
+        "host.cpu.model.name",
+        "host.cpu.vendor.id",
+        "host.cpu.family",
+        "host.cpu.model.id",
+        "host.cpu.stepping",
+        "host.cpu.cache.l2.size",
+        "os.type",
+        "os.description",
+        "cloud.provider",
+        "cloud.platform",
+        "cloud.region",
+        "cloud.availability_zone",
+        "cloud.account.id",
+        "cloud.instance.id",
     ]:
         if key in host_cfg:
             attrs[key] = host_cfg[key]
+
+    cluster_name = CLUSTER_BY_PROVIDER.get(host_cfg.get("cloud.provider"))
+    if cluster_name:
+        attrs["k8s.cluster.name"] = cluster_name
 
     attrs["telemetry.sdk.name"] = "opentelemetry"
     attrs["telemetry.sdk.version"] = "1.24.0"
@@ -213,14 +234,16 @@ def _build_host_resource(host_cfg: dict) -> dict:
     # Add array-type attributes (host.ip, host.mac)
     for arr_key in ["host.ip", "host.mac"]:
         if arr_key in host_cfg:
-            formatted.append({
-                "key": arr_key,
-                "value": {
-                    "arrayValue": {
-                        "values": [{"stringValue": v} for v in host_cfg[arr_key]]
-                    }
+            formatted.append(
+                {
+                    "key": arr_key,
+                    "value": {
+                        "arrayValue": {
+                            "values": [{"stringValue": v} for v in host_cfg[arr_key]]
+                        }
+                    },
                 }
-            })
+            )
 
     return {
         "attributes": formatted,
@@ -232,15 +255,21 @@ def _build_host_resource(host_cfg: dict) -> dict:
 class HostMetricState:
     """Tracks cumulative counter values for a single host."""
 
-    def __init__(self, cpu_count: int, mem_total: int, disk_total: int, rng: random.Random):
+    def __init__(
+        self, cpu_count: int, mem_total: int, disk_total: int, rng: random.Random
+    ):
         self.cpu_count = cpu_count
         self.mem_total = mem_total
         self.disk_total = disk_total
         self._rng = rng
         # Cumulative counters
         self.cpu_time = {
-            f"cpu{i}": {"user": rng.uniform(1000, 5000), "system": rng.uniform(500, 2000),
-                        "idle": rng.uniform(10000, 50000), "wait": rng.uniform(10, 200)}
+            f"cpu{i}": {
+                "user": rng.uniform(1000, 5000),
+                "system": rng.uniform(500, 2000),
+                "idle": rng.uniform(10000, 50000),
+                "wait": rng.uniform(10, 200),
+            }
             for i in range(cpu_count)
         }
         self.disk_io_read = rng.uniform(1e9, 5e9)
@@ -250,7 +279,7 @@ class HostMetricState:
         self.net_io_recv = rng.uniform(5e9, 20e9)
         self.net_io_send = rng.uniform(2e9, 10e9)
         # Additional cumulative counters for OTel dashboard panels
-        self.disk_io_time_read = rng.uniform(1000, 10000)    # seconds of IO time
+        self.disk_io_time_read = rng.uniform(1000, 10000)  # seconds of IO time
         self.disk_io_time_write = rng.uniform(2000, 15000)
         self.net_packets_recv = rng.randint(5000000, 50000000)
         self.net_packets_send = rng.randint(3000000, 30000000)
@@ -314,7 +343,9 @@ class ProcessState:
         self.ctx_involuntary += rng.randint(0, 20)
 
 
-def _build_sum_metric(name: str, value, unit: str, attributes: dict | None = None, is_int: bool = False) -> dict:
+def _build_sum_metric(
+    name: str, value, unit: str, attributes: dict | None = None, is_int: bool = False
+) -> dict:
     """Build a cumulative sum metric."""
     now = _now_ns()
     dp: dict = {
@@ -340,7 +371,9 @@ def _build_sum_metric(name: str, value, unit: str, attributes: dict | None = Non
     }
 
 
-def _build_gauge_metric(name: str, value, unit: str, attributes: dict | None = None, is_int: bool = False) -> dict:
+def _build_gauge_metric(
+    name: str, value, unit: str, attributes: dict | None = None, is_int: bool = False
+) -> dict:
     """Build a gauge metric."""
     now = _now_ns()
     dp: dict = {"timeUnixNano": now}
@@ -359,8 +392,12 @@ def _build_gauge_metric(name: str, value, unit: str, attributes: dict | None = N
     }
 
 
-def _generate_host_metrics(state: HostMetricState, rng: random.Random,
-                           cpu_spike_pct: float = 0, memory_spike_pct: float = 0) -> dict[str, list]:
+def _generate_host_metrics(
+    state: HostMetricState,
+    rng: random.Random,
+    cpu_spike_pct: float = 0,
+    memory_spike_pct: float = 0,
+) -> dict[str, list]:
     """Generate all host metrics grouped by scraper scope name.
 
     Returns dict mapping scope_name -> list of metric dicts.
@@ -384,15 +421,21 @@ def _generate_host_metrics(state: HostMetricState, rng: random.Random,
 
     # ── CPU metrics ──
     cpu_metrics = [
-        _build_gauge_metric("system.cpu.logical.count", state.cpu_count, "{cpu}", is_int=True),
+        _build_gauge_metric(
+            "system.cpu.logical.count", state.cpu_count, "{cpu}", is_int=True
+        ),
     ]
     for cpu_id, times in state.cpu_time.items():
         total = sum(times.values())
         for state_name, val in times.items():
-            cpu_metrics.append(_build_sum_metric(
-                "system.cpu.time", val, "s",
-                attributes={"cpu": cpu_id, "state": state_name},
-            ))
+            cpu_metrics.append(
+                _build_sum_metric(
+                    "system.cpu.time",
+                    val,
+                    "s",
+                    attributes={"cpu": cpu_id, "state": state_name},
+                )
+            )
             # Bias utilization toward spike target when active
             if cpu_spike_pct > 0 and total > 0:
                 target = cpu_spike_pct / 100.0
@@ -406,10 +449,14 @@ def _generate_host_metrics(state: HostMetricState, rng: random.Random,
                     util = target * rng.uniform(0.02, 0.08)
             else:
                 util = val / total if total > 0 else 0
-            cpu_metrics.append(_build_gauge_metric(
-                "system.cpu.utilization", util, "1",
-                attributes={"cpu": cpu_id, "state": state_name},
-            ))
+            cpu_metrics.append(
+                _build_gauge_metric(
+                    "system.cpu.utilization",
+                    util,
+                    "1",
+                    attributes={"cpu": cpu_id, "state": state_name},
+                )
+            )
     metrics_by_scope[SCRAPERS["cpu"]] = cpu_metrics
 
     # ── Memory metrics ──
@@ -436,114 +483,236 @@ def _generate_host_metrics(state: HostMetricState, rng: random.Random,
     }
     mem_metrics = []
     for mem_state, pct in mem_states.items():
-        mem_metrics.append(_build_gauge_metric(
-            "system.memory.usage", int(mem_total * pct), "By",
-            attributes={"state": mem_state}, is_int=True,
-        ))
-        mem_metrics.append(_build_gauge_metric(
-            "system.memory.utilization", pct, "1",
-            attributes={"state": mem_state},
-        ))
+        mem_metrics.append(
+            _build_gauge_metric(
+                "system.memory.usage",
+                int(mem_total * pct),
+                "By",
+                attributes={"state": mem_state},
+                is_int=True,
+            )
+        )
+        mem_metrics.append(
+            _build_gauge_metric(
+                "system.memory.utilization",
+                pct,
+                "1",
+                attributes={"state": mem_state},
+            )
+        )
     # Add slab states for utilization
     for slab_state in ["slab_reclaimable", "slab_unreclaimable"]:
         slab_pct = rng.uniform(0.01, 0.03)
-        mem_metrics.append(_build_gauge_metric(
-            "system.memory.utilization", slab_pct, "1",
-            attributes={"state": slab_state},
-        ))
+        mem_metrics.append(
+            _build_gauge_metric(
+                "system.memory.utilization",
+                slab_pct,
+                "1",
+                attributes={"state": slab_state},
+            )
+        )
     metrics_by_scope[SCRAPERS["memory"]] = mem_metrics
 
     # ── Disk metrics ──
     disk_metrics = []
     for device in ["sda", "sdb"]:
-        disk_metrics.append(_build_sum_metric(
-            "system.disk.io", state.disk_io_read, "By",
-            attributes={"device": device, "direction": "read"},
-        ))
-        disk_metrics.append(_build_sum_metric(
-            "system.disk.io", state.disk_io_write, "By",
-            attributes={"device": device, "direction": "write"},
-        ))
-        disk_metrics.append(_build_sum_metric(
-            "system.disk.operations", state.disk_ops_read, "{operation}",
-            attributes={"device": device, "direction": "read"}, is_int=True,
-        ))
-        disk_metrics.append(_build_sum_metric(
-            "system.disk.operations", state.disk_ops_write, "{operation}",
-            attributes={"device": device, "direction": "write"}, is_int=True,
-        ))
+        disk_metrics.append(
+            _build_sum_metric(
+                "system.disk.io",
+                state.disk_io_read,
+                "By",
+                attributes={"device": device, "direction": "read"},
+            )
+        )
+        disk_metrics.append(
+            _build_sum_metric(
+                "system.disk.io",
+                state.disk_io_write,
+                "By",
+                attributes={"device": device, "direction": "write"},
+            )
+        )
+        disk_metrics.append(
+            _build_sum_metric(
+                "system.disk.operations",
+                state.disk_ops_read,
+                "{operation}",
+                attributes={"device": device, "direction": "read"},
+                is_int=True,
+            )
+        )
+        disk_metrics.append(
+            _build_sum_metric(
+                "system.disk.operations",
+                state.disk_ops_write,
+                "{operation}",
+                attributes={"device": device, "direction": "write"},
+                is_int=True,
+            )
+        )
         # disk.io_time — cumulative seconds spent on IO (OTel dashboard panel)
-        disk_metrics.append(_build_sum_metric(
-            "system.disk.io_time", state.disk_io_time_read, "s",
-            attributes={"device": device, "direction": "read"},
-        ))
-        disk_metrics.append(_build_sum_metric(
-            "system.disk.io_time", state.disk_io_time_write, "s",
-            attributes={"device": device, "direction": "write"},
-        ))
+        disk_metrics.append(
+            _build_sum_metric(
+                "system.disk.io_time",
+                state.disk_io_time_read,
+                "s",
+                attributes={"device": device, "direction": "read"},
+            )
+        )
+        disk_metrics.append(
+            _build_sum_metric(
+                "system.disk.io_time",
+                state.disk_io_time_write,
+                "s",
+                attributes={"device": device, "direction": "write"},
+            )
+        )
     metrics_by_scope[SCRAPERS["disk"]] = disk_metrics
 
     # ── Filesystem metrics ──
     fs_metrics = []
     disk_total = state.disk_total
     disk_used_pct = rng.uniform(0.20, 0.75)
-    for device, mountpoint, fs_type in [("/dev/sda1", "/", "ext4"), ("/dev/sdb1", "/data", "xfs")]:
+    reserved_pct = 0.05  # 5% reserved for root, matching real Linux ext4/xfs behavior
+    for device, mountpoint, fs_type in [
+        ("/dev/sda1", "/", "ext4"),
+        ("/dev/sdb1", "/data", "xfs"),
+    ]:
+        reserved = int(disk_total * reserved_pct)
         used = int(disk_total * disk_used_pct)
-        free = disk_total - used
-        fs_metrics.append(_build_gauge_metric(
-            "system.filesystem.usage", used, "By",
-            attributes={"device": device, "mountpoint": mountpoint, "type": fs_type, "state": "used"},
-            is_int=True,
-        ))
-        fs_metrics.append(_build_gauge_metric(
-            "system.filesystem.usage", free, "By",
-            attributes={"device": device, "mountpoint": mountpoint, "type": fs_type, "state": "free"},
-            is_int=True,
-        ))
-        fs_metrics.append(_build_gauge_metric(
-            "system.filesystem.utilization", disk_used_pct, "1",
-            attributes={"device": device, "mountpoint": mountpoint, "type": fs_type},
-        ))
+        free = disk_total - used - reserved
+        fs_metrics.append(
+            _build_gauge_metric(
+                "system.filesystem.usage",
+                used,
+                "By",
+                attributes={
+                    "device": device,
+                    "mountpoint": mountpoint,
+                    "type": fs_type,
+                    "state": "used",
+                },
+                is_int=True,
+            )
+        )
+        fs_metrics.append(
+            _build_gauge_metric(
+                "system.filesystem.usage",
+                free,
+                "By",
+                attributes={
+                    "device": device,
+                    "mountpoint": mountpoint,
+                    "type": fs_type,
+                    "state": "free",
+                },
+                is_int=True,
+            )
+        )
+        fs_metrics.append(
+            _build_gauge_metric(
+                "system.filesystem.usage",
+                reserved,
+                "By",
+                attributes={
+                    "device": device,
+                    "mountpoint": mountpoint,
+                    "type": fs_type,
+                    "state": "reserved",
+                },
+                is_int=True,
+            )
+        )
+        fs_metrics.append(
+            _build_gauge_metric(
+                "system.filesystem.utilization",
+                disk_used_pct,
+                "1",
+                attributes={
+                    "device": device,
+                    "mountpoint": mountpoint,
+                    "type": fs_type,
+                },
+            )
+        )
     metrics_by_scope[SCRAPERS["filesystem"]] = fs_metrics
 
     # ── Network metrics ──
     net_metrics = []
     for device in ["eth0", "eth1"]:
-        net_metrics.append(_build_sum_metric(
-            "system.network.io", state.net_io_recv, "By",
-            attributes={"device": device, "direction": "receive"},
-        ))
-        net_metrics.append(_build_sum_metric(
-            "system.network.io", state.net_io_send, "By",
-            attributes={"device": device, "direction": "transmit"},
-        ))
+        net_metrics.append(
+            _build_sum_metric(
+                "system.network.io",
+                state.net_io_recv,
+                "By",
+                attributes={"device": device, "direction": "receive"},
+            )
+        )
+        net_metrics.append(
+            _build_sum_metric(
+                "system.network.io",
+                state.net_io_send,
+                "By",
+                attributes={"device": device, "direction": "transmit"},
+            )
+        )
         # network.packets — cumulative packet counts (OTel dashboard panel)
-        net_metrics.append(_build_sum_metric(
-            "system.network.packets", state.net_packets_recv, "{packet}",
-            attributes={"device": device, "direction": "receive"}, is_int=True,
-        ))
-        net_metrics.append(_build_sum_metric(
-            "system.network.packets", state.net_packets_send, "{packet}",
-            attributes={"device": device, "direction": "transmit"}, is_int=True,
-        ))
+        net_metrics.append(
+            _build_sum_metric(
+                "system.network.packets",
+                state.net_packets_recv,
+                "{packet}",
+                attributes={"device": device, "direction": "receive"},
+                is_int=True,
+            )
+        )
+        net_metrics.append(
+            _build_sum_metric(
+                "system.network.packets",
+                state.net_packets_send,
+                "{packet}",
+                attributes={"device": device, "direction": "transmit"},
+                is_int=True,
+            )
+        )
         # network.dropped — cumulative dropped packet counts (OTel dashboard panel)
-        net_metrics.append(_build_sum_metric(
-            "system.network.dropped", state.net_dropped_recv, "{packet}",
-            attributes={"device": device, "direction": "receive"}, is_int=True,
-        ))
-        net_metrics.append(_build_sum_metric(
-            "system.network.dropped", state.net_dropped_send, "{packet}",
-            attributes={"device": device, "direction": "transmit"}, is_int=True,
-        ))
+        net_metrics.append(
+            _build_sum_metric(
+                "system.network.dropped",
+                state.net_dropped_recv,
+                "{packet}",
+                attributes={"device": device, "direction": "receive"},
+                is_int=True,
+            )
+        )
+        net_metrics.append(
+            _build_sum_metric(
+                "system.network.dropped",
+                state.net_dropped_send,
+                "{packet}",
+                attributes={"device": device, "direction": "transmit"},
+                is_int=True,
+            )
+        )
         # network.errors — cumulative error counts (OTel dashboard panel)
-        net_metrics.append(_build_sum_metric(
-            "system.network.errors", state.net_errors_recv, "{error}",
-            attributes={"device": device, "direction": "receive"}, is_int=True,
-        ))
-        net_metrics.append(_build_sum_metric(
-            "system.network.errors", state.net_errors_send, "{error}",
-            attributes={"device": device, "direction": "transmit"}, is_int=True,
-        ))
+        net_metrics.append(
+            _build_sum_metric(
+                "system.network.errors",
+                state.net_errors_recv,
+                "{error}",
+                attributes={"device": device, "direction": "receive"},
+                is_int=True,
+            )
+        )
+        net_metrics.append(
+            _build_sum_metric(
+                "system.network.errors",
+                state.net_errors_send,
+                "{error}",
+                attributes={"device": device, "direction": "transmit"},
+                is_int=True,
+            )
+        )
     # network.connections — TCP connection count by state (OTel dashboard panel)
     tcp_states = {
         "ESTABLISHED": rng.randint(40, 200),
@@ -556,29 +725,50 @@ def _generate_host_metrics(state: HostMetricState, rng: random.Random,
         "FIN_WAIT2": rng.randint(0, 5),
     }
     for tcp_state, count in tcp_states.items():
-        net_metrics.append(_build_gauge_metric(
-            "system.network.connections", count, "{connection}",
-            attributes={"protocol": "tcp", "state": tcp_state}, is_int=True,
-        ))
+        net_metrics.append(
+            _build_gauge_metric(
+                "system.network.connections",
+                count,
+                "{connection}",
+                attributes={"protocol": "tcp", "state": tcp_state},
+                is_int=True,
+            )
+        )
     metrics_by_scope[SCRAPERS["network"]] = net_metrics
 
     # ── Process metrics ──
     running_count = rng.randint(1, 8)
     sleeping = rng.randint(50, 200)
     metrics_by_scope[SCRAPERS["processes"]] = [
-        _build_gauge_metric("system.processes.count", running_count, "{process}",
-                            attributes={"status": "running"}, is_int=True),
-        _build_gauge_metric("system.processes.count", sleeping, "{process}",
-                            attributes={"status": "sleeping"}, is_int=True),
+        _build_gauge_metric(
+            "system.processes.count",
+            running_count,
+            "{process}",
+            attributes={"status": "running"},
+            is_int=True,
+        ),
+        _build_gauge_metric(
+            "system.processes.count",
+            sleeping,
+            "{process}",
+            attributes={"status": "sleeping"},
+            is_int=True,
+        ),
         # processes.created — cumulative process creation count (OTel dashboard panel)
-        _build_sum_metric("system.processes.created", state.processes_created, "{process}",
-                          is_int=True),
+        _build_sum_metric(
+            "system.processes.created",
+            state.processes_created,
+            "{process}",
+            is_int=True,
+        ),
     ]
 
     return metrics_by_scope
 
 
-def _send_metrics_with_scopes(client: OTLPClient, resource: dict, metrics_by_scope: dict[str, list]) -> int:
+def _send_metrics_with_scopes(
+    client: OTLPClient, resource: dict, metrics_by_scope: dict[str, list]
+) -> int:
     """Send metrics grouped by scope name. Returns total metric count sent."""
     total = 0
     for scope_name, metrics in metrics_by_scope.items():
@@ -605,15 +795,20 @@ def _send_metrics_with_scopes(client: OTLPClient, resource: dict, metrics_by_sco
 
 # ── Per-process metrics ──────────────────────────────────────────────────────
 
+
 def _build_process_resource(host_cfg: dict, proc_state: ProcessState) -> dict:
     """Build OTLP resource for an individual process (host attrs + process attrs)."""
     t = proc_state.template
     attrs = {}
     # Carry over host identification attributes
     for key in [
-        "host.name", "host.id", "host.arch",
-        "os.type", "os.description",
-        "cloud.provider", "cloud.region",
+        "host.name",
+        "host.id",
+        "host.arch",
+        "os.type",
+        "os.description",
+        "cloud.provider",
+        "cloud.region",
     ]:
         if key in host_cfg:
             attrs[key] = host_cfg[key]
@@ -637,21 +832,31 @@ def _build_process_resource(host_cfg: dict, proc_state: ProcessState) -> dict:
     }
 
 
-def _generate_process_metrics(proc_state: ProcessState, rng: random.Random) -> list[dict]:
+def _generate_process_metrics(
+    proc_state: ProcessState, rng: random.Random
+) -> list[dict]:
     """Generate OTel process.* metrics for a single process."""
     proc_state.tick()
     t = proc_state.template
     metrics = []
 
     # process.cpu.time — cumulative seconds by state (user, system)
-    metrics.append(_build_sum_metric(
-        "process.cpu.time", proc_state.cpu_time_user, "s",
-        attributes={"state": "user"},
-    ))
-    metrics.append(_build_sum_metric(
-        "process.cpu.time", proc_state.cpu_time_system, "s",
-        attributes={"state": "system"},
-    ))
+    metrics.append(
+        _build_sum_metric(
+            "process.cpu.time",
+            proc_state.cpu_time_user,
+            "s",
+            attributes={"state": "user"},
+        )
+    )
+    metrics.append(
+        _build_sum_metric(
+            "process.cpu.time",
+            proc_state.cpu_time_system,
+            "s",
+            attributes={"state": "system"},
+        )
+    )
 
     # process.cpu.utilization — instantaneous ratio (0..1)
     cpu_util = t["cpu_weight"] * rng.uniform(0.3, 1.5)
@@ -660,47 +865,85 @@ def _generate_process_metrics(proc_state: ProcessState, rng: random.Random) -> l
 
     # process.memory.usage — resident memory (bytes)
     lo, hi = t["mem_bytes_range"]
-    metrics.append(_build_gauge_metric(
-        "process.memory.usage", rng.randint(lo, hi), "By", is_int=True,
-    ))
+    metrics.append(
+        _build_gauge_metric(
+            "process.memory.usage",
+            rng.randint(lo, hi),
+            "By",
+            is_int=True,
+        )
+    )
 
     # process.memory.virtual — virtual memory size (bytes)
     lo, hi = t["virtual_bytes_range"]
-    metrics.append(_build_gauge_metric(
-        "process.memory.virtual", rng.randint(lo, hi), "By", is_int=True,
-    ))
+    metrics.append(
+        _build_gauge_metric(
+            "process.memory.virtual",
+            rng.randint(lo, hi),
+            "By",
+            is_int=True,
+        )
+    )
 
     # process.threads — thread count
     lo, hi = t["threads_range"]
-    metrics.append(_build_gauge_metric(
-        "process.threads", rng.randint(lo, hi), "{thread}", is_int=True,
-    ))
+    metrics.append(
+        _build_gauge_metric(
+            "process.threads",
+            rng.randint(lo, hi),
+            "{thread}",
+            is_int=True,
+        )
+    )
 
     # process.open_file_descriptors — open FD count
     lo, hi = t["fd_range"]
-    metrics.append(_build_gauge_metric(
-        "process.open_file_descriptors", rng.randint(lo, hi), "{count}", is_int=True,
-    ))
+    metrics.append(
+        _build_gauge_metric(
+            "process.open_file_descriptors",
+            rng.randint(lo, hi),
+            "{count}",
+            is_int=True,
+        )
+    )
 
     # process.disk.io — cumulative bytes by direction
-    metrics.append(_build_sum_metric(
-        "process.disk.io", proc_state.disk_read, "By",
-        attributes={"direction": "read"},
-    ))
-    metrics.append(_build_sum_metric(
-        "process.disk.io", proc_state.disk_write, "By",
-        attributes={"direction": "write"},
-    ))
+    metrics.append(
+        _build_sum_metric(
+            "process.disk.io",
+            proc_state.disk_read,
+            "By",
+            attributes={"direction": "read"},
+        )
+    )
+    metrics.append(
+        _build_sum_metric(
+            "process.disk.io",
+            proc_state.disk_write,
+            "By",
+            attributes={"direction": "write"},
+        )
+    )
 
     # process.context_switches — cumulative by type
-    metrics.append(_build_sum_metric(
-        "process.context_switches", proc_state.ctx_voluntary, "{count}",
-        attributes={"type": "voluntary"}, is_int=True,
-    ))
-    metrics.append(_build_sum_metric(
-        "process.context_switches", proc_state.ctx_involuntary, "{count}",
-        attributes={"type": "involuntary"}, is_int=True,
-    ))
+    metrics.append(
+        _build_sum_metric(
+            "process.context_switches",
+            proc_state.ctx_voluntary,
+            "{count}",
+            attributes={"type": "voluntary"},
+            is_int=True,
+        )
+    )
+    metrics.append(
+        _build_sum_metric(
+            "process.context_switches",
+            proc_state.ctx_involuntary,
+            "{count}",
+            attributes={"type": "involuntary"},
+            is_int=True,
+        )
+    )
 
     return metrics
 
@@ -718,13 +961,17 @@ def _send_process_metrics(
 
     for ps in proc_states:
         metrics = _generate_process_metrics(ps, rng)
-        resource_metrics.append({
-            "resource": _build_process_resource(host_cfg, ps),
-            "scopeMetrics": [{
-                "scope": {"name": scope_name, "version": "0.115.0"},
-                "metrics": metrics,
-            }],
-        })
+        resource_metrics.append(
+            {
+                "resource": _build_process_resource(host_cfg, ps),
+                "scopeMetrics": [
+                    {
+                        "scope": {"name": scope_name, "version": "0.115.0"},
+                        "metrics": metrics,
+                    }
+                ],
+            }
+        )
         total += len(metrics)
 
     if resource_metrics:
@@ -735,8 +982,12 @@ def _send_process_metrics(
 
 
 # ── Run loop (used by ServiceManager and standalone) ──────────────────────────
-def run(client: OTLPClient, stop_event: threading.Event, scenario_data: dict | None = None,
-        chaos_controller=None) -> None:
+def run(
+    client: OTLPClient,
+    stop_event: threading.Event,
+    scenario_data: dict | None = None,
+    chaos_controller=None,
+) -> None:
     """Run host metrics generator loop until stop_event is set."""
     rng = random.Random()
 
@@ -775,8 +1026,12 @@ def run(client: OTLPClient, stop_event: threading.Event, scenario_data: dict | N
     scrape_count = 0
     proc_count = len(PROCESS_TEMPLATES) * len(hosts)
 
-    logger.info("Host metrics generator started (interval=%ds, hosts=%d, processes=%d)",
-                METRICS_INTERVAL, len(hosts), proc_count)
+    logger.info(
+        "Host metrics generator started (interval=%ds, hosts=%d, processes=%d)",
+        METRICS_INTERVAL,
+        len(hosts),
+        proc_count,
+    )
 
     while not stop_event.is_set():
         # Determine per-host spike targets from chaos_controller
@@ -800,19 +1055,26 @@ def run(client: OTLPClient, stop_event: threading.Event, scenario_data: dict | N
 
         batch_metrics = 0
         for host_cfg, resource, state, proc_states in zip(
-            hosts, host_resources, host_states, host_proc_states,
+            hosts,
+            host_resources,
+            host_states,
+            host_proc_states,
         ):
             host_name = host_cfg["host.name"]
             host_cloud = _host_cloud_map.get(host_name, "")
             # Spike this host if: sliders active AND (no faults → spike all, or this host's cloud is affected)
-            if (cpu_pct > 0 or mem_pct > 0) and (not has_active_faults or host_cloud in spiked_clouds):
+            if (cpu_pct > 0 or mem_pct > 0) and (
+                not has_active_faults or host_cloud in spiked_clouds
+            ):
                 host_cpu = cpu_pct
                 host_mem = mem_pct
             else:
                 host_cpu = 0
                 host_mem = 0
 
-            metrics_by_scope = _generate_host_metrics(state, rng, cpu_spike_pct=host_cpu, memory_spike_pct=host_mem)
+            metrics_by_scope = _generate_host_metrics(
+                state, rng, cpu_spike_pct=host_cpu, memory_spike_pct=host_mem
+            )
             sent = _send_metrics_with_scopes(client, resource, metrics_by_scope)
             batch_metrics += sent
             # Per-process metrics
@@ -823,18 +1085,27 @@ def run(client: OTLPClient, stop_event: threading.Event, scenario_data: dict | N
         total_metrics += batch_metrics
         logger.info(
             "Scrape %d: sent %d metrics across %d hosts + %d processes (total=%d)",
-            scrape_count, batch_metrics, len(hosts), proc_count, total_metrics,
+            scrape_count,
+            batch_metrics,
+            len(hosts),
+            proc_count,
+            total_metrics,
         )
 
         stop_event.wait(METRICS_INTERVAL)
 
-    logger.info("Host metrics generator stopped. Total: %d metrics in %d scrapes",
-                total_metrics, scrape_count)
+    logger.info(
+        "Host metrics generator stopped. Total: %d metrics in %d scrapes",
+        total_metrics,
+        scrape_count,
+    )
 
 
 # ── Standalone entry point ────────────────────────────────────────────────────
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
+    )
 
     client = OTLPClient()
     stop_event = threading.Event()

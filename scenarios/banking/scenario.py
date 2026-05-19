@@ -20,6 +20,10 @@ class BankingScenario(BaseScenario):
         return "banking"
 
     @property
+    def scenario_icon(self) -> str:
+        return "🏦"
+
+    @property
     def scenario_name(self) -> str:
         return "Retail Banking Platform"
 
@@ -34,6 +38,98 @@ class BankingScenario(BaseScenario):
     @property
     def namespace(self) -> str:
         return "banking"
+
+    @property
+    def sort_order(self) -> int:
+        return 6
+
+    @property
+    def raw_log_profile(self) -> dict[str, Any]:
+        return {
+            "service_name": "banking-gateway",
+            "user_id_prefix": "acct",
+            "tier_field": "account_tier",
+            "tier_values": [("standard", 70), ("premier", 22), ("private", 8)],
+            "country_weights": {"US": 50, "GB": 15, "DE": 8, "FR": 5, "CA": 10, "AU": 5, "SG": 4, "JP": 3},
+            "methods": ["GET", "POST", "PUT", "DELETE"],
+            "paths": [
+                "/api/v1/accounts", "/api/v1/transfers", "/api/v1/cards",
+                "/api/v1/loans", "/api/v1/payees", "/api/v1/statements",
+                "/login", "/health",
+            ],
+            "change_point_path": "/api/v1/transfers",
+        }
+
+    @property
+    def executive_kpi_emitter_service_name(self) -> str:
+        return "member-portal"
+
+    @property
+    def executive_dashboard_intro(self) -> str:
+        return (
+            "**Retail banking KPIs** — revenue & margins, digital adoption, risk & compliance, "
+            "and customer health (synthetic `business.*` from `member-portal`)."
+        )
+
+    @property
+    def executive_kpi_sections(self) -> list[dict]:
+        return [
+            {
+                "header": "**Revenue & margins** — NII, fees, origination, interchange, and deposits",
+                "specs": [
+                    ("Net interest income (USD/min)", "metrics.business.net_interest_income_usd_per_min"),
+                    ("Fee revenue (USD/min)", "metrics.business.fee_revenue_usd_per_min"),
+                    ("Loan origination (USD/min)", "metrics.business.loan_origination_usd_per_min"),
+                    ("Card interchange (USD/min)", "metrics.business.card_interchange_usd_per_min"),
+                    ("Wealth AUM delta (USD/min)", "metrics.business.wealth_aum_delta_usd_per_min"),
+                    ("Deposit growth (USD/min)", "metrics.business.deposit_growth_usd_per_min"),
+                ],
+            },
+            {
+                "header": "**Digital adoption** — sessions, mobile, self-service, and API usage",
+                "specs": [
+                    ("Active digital sessions", "metrics.business.active_digital_sessions"),
+                    ("Mobile logins / min", "metrics.business.mobile_logins_per_min"),
+                    ("Digital transaction (%)", "metrics.business.digital_transaction_pct"),
+                    ("Self-service deflection (%)", "metrics.business.self_service_deflection_pct"),
+                    ("App session duration (s)", "metrics.business.app_session_duration_sec"),
+                    ("API calls / min", "metrics.business.api_calls_per_min"),
+                ],
+            },
+            {
+                "header": "**Risk & compliance** — fraud, AML, chargebacks, and regulatory",
+                "specs": [
+                    ("Fraud detection rate (%)", "metrics.business.fraud_detection_rate_pct"),
+                    ("Suspicious activity alerts / min", "metrics.business.suspicious_activity_alerts_per_min"),
+                    ("AML flags / min", "metrics.business.aml_flags_per_min"),
+                    ("Failed auth attempts / min", "metrics.business.failed_auth_attempts_per_min"),
+                    ("Chargeback rate (%)", "metrics.business.chargeback_rate_pct"),
+                    ("Regulatory breach count", "metrics.business.regulatory_breach_count"),
+                ],
+            },
+            {
+                "header": "**Customer health** — NPS, openings, closures, churn & satisfaction",
+                "specs": [
+                    ("Satisfaction proxy (NPS-like)", "metrics.business.net_satisfaction_proxy_nps"),
+                    ("Account openings / min", "metrics.business.account_openings_per_min"),
+                    ("Account closures / min", "metrics.business.account_closures_per_min"),
+                    ("Churn risk (0–100)", "metrics.business.churn_risk_index_0_100"),
+                    ("Complaint tickets / min", "metrics.business.complaint_tickets_per_min"),
+                    ("CSAT (0–5)", "metrics.business.csat_score_0_5"),
+                ],
+            },
+        ]
+
+    @property
+    def executive_trend_charts(self) -> list[dict]:
+        return [
+            {"title": "Net interest income trend", "field": "metrics.business.net_interest_income_usd_per_min", "y_label": "USD/min"},
+            {"title": "Loan origination trend", "field": "metrics.business.loan_origination_usd_per_min", "y_label": "USD/min"},
+            {"title": "Active digital sessions", "field": "metrics.business.active_digital_sessions", "y_label": "sessions"},
+            {"title": "Deposit growth trend", "field": "metrics.business.deposit_growth_usd_per_min", "y_label": "USD/min"},
+            {"title": "Fraud detection rate", "field": "metrics.business.fraud_detection_rate_pct", "y_label": "%"},
+            {"title": "Churn risk index", "field": "metrics.business.churn_risk_index_0_100", "y_label": "index"},
+        ]
 
     # ── Services ──────────────────────────────────────────────────────
 
@@ -123,42 +219,48 @@ class BankingScenario(BaseScenario):
     def channel_registry(self) -> dict[int, dict[str, Any]]:
         return {
             1: {
-                "name": "Mobile App API Timeout",
-                "subsystem": "digital_banking",
-                "vehicle_section": "mobile_api",
-                "error_type": "MOBILE-API-TIMEOUT",
-                "sensor_type": "api_latency",
-                "affected_services": ["mobile-gateway", "auth-gateway"],
-                "cascade_services": ["member-portal", "payment-engine"],
-                "description": "Mobile banking API requests exceeding response time SLA causing member app failures",
+                "name": "Fraud Model False Positive Surge",
+                "subsystem": "fraud_detection",
+                "vehicle_section": "fraud_engine",
+                "error_type": "FRAUD-FP-SURGE",
+                "sensor_type": "fraud_classifier",
+                "affected_services": ["fraud-sentinel", "payment-engine"],
+                "cascade_services": ["mobile-gateway", "auth-gateway"],
+                "description": "Fraud detection model generating excessive false positives blocking legitimate member transactions",
                 "investigation_notes": (
-                    "1. Check mobile-gateway connection pool utilization — pool_active near pool_max indicates exhaustion. "
-                    "Run: kubectl exec -it mobile-gateway -- curl localhost:8080/actuator/metrics/hikaricp.connections.active\n"
-                    "2. Review backend_routing phase — latency spike at this stage points to upstream service degradation, "
-                    "not the gateway itself. Check auth-gateway and payment-engine response times in APM.\n"
-                    "3. Inspect circuit breaker state: HALF_OPEN means the gateway is testing recovery. If stuck in HALF_OPEN "
-                    "for >60s, the upstream service is intermittently failing. Check: /actuator/health for dependency status.\n"
-                    "4. Queue depth >2000 indicates backpressure buildup — consider scaling mobile-gateway replicas or "
-                    "enabling request shedding. Check HPA metrics: kubectl get hpa mobile-gateway -n banking-prod.\n"
-                    "5. Verify CACHE_STALE fallback is returning acceptable data — stale cached responses may show "
-                    "incorrect balances. Review cache TTL settings in mobile-gateway ConfigMap."
+                    "1. Root cause is PCS_SEASON — Permanent Change of Station moves cause massive geographic velocity "
+                    "changes that the fraud model interprets as account takeover. This is a known seasonal pattern.\n"
+                    "2. Feature drift analysis: geo_velocity_feature at 0.92 drift and ip_diversity at 0.87 drift confirm "
+                    "the model's geographic features are firing on legitimate PCS relocations.\n"
+                    "3. With 4,200 active PCS orders, the model needs a PCS whitelist — members with active PCS orders "
+                    "should have relaxed geo-velocity thresholds. Query: SELECT member_id FROM pcs_orders WHERE status='ACTIVE'.\n"
+                    "4. Revenue impact at $892K/hr blocked is severe. Precision dropped to 3.2% means 97% of blocks are "
+                    "false positives. Immediately raise the fraud score threshold from current to 75/100 for PCS-flagged members.\n"
+                    "5. Initiate emergency model retrain with PCS-labeled training data. Include features: has_active_pcs, "
+                    "days_since_pcs_order, destination_matches_new_duty_station.\n"
+                    "6. Short-term fix: whitelist all members with active PCS orders in the fraud rules table. "
+                    "INSERT INTO fraud_whitelist SELECT member_id FROM pcs_orders WHERE status='ACTIVE' AND effective_date > CURRENT_DATE - 90."
                 ),
-                "remediation_action": "restart_mobile_gateway",
-                "error_message": "[MOBILE] MOBILE-API-TIMEOUT: endpoint={endpoint} latency_ms={latency_ms} sla_ms={sla_ms} member={member_id} device={device_type}",
+                "remediation_action": "recalibrate_fraud_model",
+                "error_message": "[FRAUD] FRAUD-FP-SURGE: blocked={fraud_blocked} window={fraud_window_s}s fp_rate={fraud_fp_rate}% model={fraud_model} pattern={fraud_pattern}",
                 "stack_trace": (
-                    "=== MOBILE GATEWAY LATENCY REPORT ===\n"
-                    "endpoint={endpoint}  member={member_id}  device={device_type}\n"
-                    "--- REQUEST PIPELINE ---\n"
-                    "  PHASE                ELAPSED_MS    STATUS\n"
-                    "  tls_handshake            42        OK\n"
-                    "  auth_token_verify        180       OK\n"
-                    "  rate_limit_check         12        OK\n"
-                    "  backend_routing          {latency_ms}     TIMEOUT  <<< BOTTLENECK\n"
-                    "  response_serialize       ---       SKIPPED\n"
-                    "total_ms={latency_ms}  sla_ms={sla_ms}  breach=true\n"
-                    "connection_pool_active=847  pool_max=1000  queue_depth=2340\n"
-                    "circuit_breaker=HALF_OPEN  retry_count=3  fallback=CACHE_STALE\n"
-                    "ACTION: circuit_break=true  return_cached=true  alert=MOBILE-API-TIMEOUT"
+                    "=== FRAUD MODEL PERFORMANCE ===\n"
+                    "model={fraud_model}  pattern={fraud_pattern}  window={fraud_window_s}s\n"
+                    "--- CLASSIFICATION MATRIX ---\n"
+                    "                    PREDICTED_FRAUD   PREDICTED_LEGIT\n"
+                    "  ACTUAL_FRAUD           8               1\n"
+                    "  ACTUAL_LEGIT          {fraud_blocked}              3,847\n"
+                    "--- METRICS ---\n"
+                    "  true_positive_rate    88.9%\n"
+                    "  false_positive_rate   {fraud_fp_rate}%  <<< SURGE THRESHOLD\n"
+                    "  precision             3.2%\n"
+                    "  blocked_txns          {fraud_blocked}\n"
+                    "  member_impact         $892,000/hr revenue blocked\n"
+                    "--- DRIFT ANALYSIS ---\n"
+                    "  trigger=PCS_SEASON  (military relocation spike)\n"
+                    "  geo_velocity_feature=0.92_drift  ip_diversity=0.87_drift\n"
+                    "  pcs_orders_active=4,200  geolocation_changes=HIGH\n"
+                    "ACTION: whitelist_pcs=true  retrain_model=true  alert=FRAUD-FP-SURGE"
                 ),
             },
             2: {
@@ -762,48 +864,42 @@ class BankingScenario(BaseScenario):
                 ),
             },
             16: {
-                "name": "Fraud Model False Positive Surge",
-                "subsystem": "fraud_detection",
-                "vehicle_section": "fraud_engine",
-                "error_type": "FRAUD-FP-SURGE",
-                "sensor_type": "fraud_classifier",
-                "affected_services": ["fraud-sentinel", "payment-engine"],
-                "cascade_services": ["mobile-gateway", "auth-gateway"],
-                "description": "Fraud detection model generating excessive false positives blocking legitimate member transactions",
+                "name": "Mobile App API Timeout",
+                "subsystem": "digital_banking",
+                "vehicle_section": "mobile_api",
+                "error_type": "MOBILE-API-TIMEOUT",
+                "sensor_type": "api_latency",
+                "affected_services": ["mobile-gateway", "auth-gateway"],
+                "cascade_services": ["member-portal", "payment-engine"],
+                "description": "Mobile banking API requests exceeding response time SLA causing member app failures",
                 "investigation_notes": (
-                    "1. Root cause is PCS_SEASON — Permanent Change of Station moves cause massive geographic velocity "
-                    "changes that the fraud model interprets as account takeover. This is a known seasonal pattern.\n"
-                    "2. Feature drift analysis: geo_velocity_feature at 0.92 drift and ip_diversity at 0.87 drift confirm "
-                    "the model's geographic features are firing on legitimate PCS relocations.\n"
-                    "3. With 4,200 active PCS orders, the model needs a PCS whitelist — members with active PCS orders "
-                    "should have relaxed geo-velocity thresholds. Query: SELECT member_id FROM pcs_orders WHERE status='ACTIVE'.\n"
-                    "4. Revenue impact at $892K/hr blocked is severe. Precision dropped to 3.2% means 97% of blocks are "
-                    "false positives. Immediately raise the fraud score threshold from current to 75/100 for PCS-flagged members.\n"
-                    "5. Initiate emergency model retrain with PCS-labeled training data. Include features: has_active_pcs, "
-                    "days_since_pcs_order, destination_matches_new_duty_station.\n"
-                    "6. Short-term fix: whitelist all members with active PCS orders in the fraud rules table. "
-                    "INSERT INTO fraud_whitelist SELECT member_id FROM pcs_orders WHERE status='ACTIVE' AND effective_date > CURRENT_DATE - 90."
+                    "1. Check mobile-gateway connection pool utilization — pool_active near pool_max indicates exhaustion. "
+                    "Run: kubectl exec -it mobile-gateway -- curl localhost:8080/actuator/metrics/hikaricp.connections.active\n"
+                    "2. Review backend_routing phase — latency spike at this stage points to upstream service degradation, "
+                    "not the gateway itself. Check auth-gateway and payment-engine response times in APM.\n"
+                    "3. Inspect circuit breaker state: HALF_OPEN means the gateway is testing recovery. If stuck in HALF_OPEN "
+                    "for >60s, the upstream service is intermittently failing. Check: /actuator/health for dependency status.\n"
+                    "4. Queue depth >2000 indicates backpressure buildup — consider scaling mobile-gateway replicas or "
+                    "enabling request shedding. Check HPA metrics: kubectl get hpa mobile-gateway -n banking-prod.\n"
+                    "5. Verify CACHE_STALE fallback is returning acceptable data — stale cached responses may show "
+                    "incorrect balances. Review cache TTL settings in mobile-gateway ConfigMap."
                 ),
-                "remediation_action": "recalibrate_fraud_model",
-                "error_message": "[FRAUD] FRAUD-FP-SURGE: blocked={fraud_blocked} window={fraud_window_s}s fp_rate={fraud_fp_rate}% model={fraud_model} pattern={fraud_pattern}",
+                "remediation_action": "restart_mobile_gateway",
+                "error_message": "[MOBILE] MOBILE-API-TIMEOUT: endpoint={endpoint} latency_ms={latency_ms} sla_ms={sla_ms} member={member_id} device={device_type}",
                 "stack_trace": (
-                    "=== FRAUD MODEL PERFORMANCE ===\n"
-                    "model={fraud_model}  pattern={fraud_pattern}  window={fraud_window_s}s\n"
-                    "--- CLASSIFICATION MATRIX ---\n"
-                    "                    PREDICTED_FRAUD   PREDICTED_LEGIT\n"
-                    "  ACTUAL_FRAUD           8               1\n"
-                    "  ACTUAL_LEGIT          {fraud_blocked}              3,847\n"
-                    "--- METRICS ---\n"
-                    "  true_positive_rate    88.9%\n"
-                    "  false_positive_rate   {fraud_fp_rate}%  <<< SURGE THRESHOLD\n"
-                    "  precision             3.2%\n"
-                    "  blocked_txns          {fraud_blocked}\n"
-                    "  member_impact         $892,000/hr revenue blocked\n"
-                    "--- DRIFT ANALYSIS ---\n"
-                    "  trigger=PCS_SEASON  (military relocation spike)\n"
-                    "  geo_velocity_feature=0.92_drift  ip_diversity=0.87_drift\n"
-                    "  pcs_orders_active=4,200  geolocation_changes=HIGH\n"
-                    "ACTION: whitelist_pcs=true  retrain_model=true  alert=FRAUD-FP-SURGE"
+                    "=== MOBILE GATEWAY LATENCY REPORT ===\n"
+                    "endpoint={endpoint}  member={member_id}  device={device_type}\n"
+                    "--- REQUEST PIPELINE ---\n"
+                    "  PHASE                ELAPSED_MS    STATUS\n"
+                    "  tls_handshake            42        OK\n"
+                    "  auth_token_verify        180       OK\n"
+                    "  rate_limit_check         12        OK\n"
+                    "  backend_routing          {latency_ms}     TIMEOUT  <<< BOTTLENECK\n"
+                    "  response_serialize       ---       SKIPPED\n"
+                    "total_ms={latency_ms}  sla_ms={sla_ms}  breach=true\n"
+                    "connection_pool_active=847  pool_max=1000  queue_depth=2340\n"
+                    "circuit_breaker=HALF_OPEN  retry_count=3  fallback=CACHE_STALE\n"
+                    "ACTION: circuit_break=true  return_cached=true  alert=MOBILE-API-TIMEOUT"
                 ),
             },
             17: {
@@ -1242,9 +1338,7 @@ class BankingScenario(BaseScenario):
             status_info="#4da6e8",
             font_family="'Inter', 'Segoe UI', system-ui, sans-serif",
             font_mono="'JetBrains Mono', 'Fira Code', monospace",
-            dashboard_title="Member Services Operations Center",
             chaos_title="Incident Simulator",
-            landing_title="Retail Banking Platform",
             service_label="Service",
             channel_label="Channel",
         )
@@ -1399,11 +1493,11 @@ class BankingScenario(BaseScenario):
 
     def get_rca_clues(self, channel: int, service_name: str, rng) -> dict:
         clues = {
-            1: {  # Mobile App API Timeout
-                "mobile-gateway": {"gateway.connection_pool_active": rng.randint(800, 1000), "gateway.backend_routing_phase": "stalled"},
-                "auth-gateway": {"auth.token_verify_latency_ms": rng.randint(400, 900), "auth.session_cache_hit_rate": round(rng.uniform(0.1, 0.3), 2)},
-                "member-portal": {"upstream.degraded_dependency": "mobile-gateway", "portal.response_queue_depth": rng.randint(1500, 3000)},
-                "payment-engine": {"payment.upstream_timeout_count": rng.randint(50, 200), "payment.circuit_breaker_state": "HALF_OPEN"},
+            1: {  # Fraud Model False Positive Surge
+                "fraud-sentinel": {"fraud.false_positive_rate_pct": round(rng.uniform(8, 18), 1), "fraud.trigger_pattern": "PCS_SEASON"},
+                "payment-engine": {"payment.blocked_txn_revenue_per_hr": rng.randint(500000, 1200000), "payment.auto_decline_count": rng.randint(200, 800)},
+                "mobile-gateway": {"gateway.member_block_complaints": rng.randint(100, 400), "gateway.txn_retry_surge": True},
+                "auth-gateway": {"auth.pcs_whitelist_status": "NOT_APPLIED", "auth.geo_velocity_alerts": rng.randint(500, 2000)},
             },
             2: {  # Mobile Deposit Processing Failure
                 "mobile-gateway": {"gateway.deposit_ocr_quality": round(rng.uniform(55, 84), 1), "gateway.image_capture_retries": rng.randint(2, 5)},
@@ -1489,11 +1583,11 @@ class BankingScenario(BaseScenario):
                 "member-portal": {"portal.deployed_member_lockout_count": rng.randint(50, 150), "portal.scra_flag_check": True},
                 "payment-engine": {"payment.mfa_blocked_transactions": rng.randint(500, 2000), "payment.step_up_auth_failures": rng.randint(100, 500)},
             },
-            16: {  # Fraud Model False Positive Surge
-                "fraud-sentinel": {"fraud.false_positive_rate_pct": round(rng.uniform(8, 18), 1), "fraud.trigger_pattern": "PCS_SEASON"},
-                "payment-engine": {"payment.blocked_txn_revenue_per_hr": rng.randint(500000, 1200000), "payment.auto_decline_count": rng.randint(200, 800)},
-                "mobile-gateway": {"gateway.member_block_complaints": rng.randint(100, 400), "gateway.txn_retry_surge": True},
-                "auth-gateway": {"auth.pcs_whitelist_status": "NOT_APPLIED", "auth.geo_velocity_alerts": rng.randint(500, 2000)},
+            16: {  # Mobile App API Timeout
+                "mobile-gateway": {"gateway.connection_pool_active": rng.randint(800, 1000), "gateway.backend_routing_phase": "stalled"},
+                "auth-gateway": {"auth.token_verify_latency_ms": rng.randint(400, 900), "auth.session_cache_hit_rate": round(rng.uniform(0.1, 0.3), 2)},
+                "member-portal": {"upstream.degraded_dependency": "mobile-gateway", "portal.response_queue_depth": rng.randint(1500, 3000)},
+                "payment-engine": {"payment.upstream_timeout_count": rng.randint(50, 200), "payment.circuit_breaker_state": "HALF_OPEN"},
             },
             17: {  # Member Session Timeout Cascade
                 "member-portal": {"portal.sessions_lost": rng.randint(10000, 50000), "portal.redis_cluster_status": "PRIMARY_DOWN"},
@@ -1525,7 +1619,7 @@ class BankingScenario(BaseScenario):
 
     def get_correlation_attribute(self, channel: int, is_error: bool, rng) -> dict:
         correlation_attrs = {
-            1: ("deployment.api_gateway_version", "gateway-v2.9.1-canary"),
+            1: ("runtime.fraud_model_weights", "FraudNet-v5.3-canary-weights"),
             2: ("infra.ocr_engine_version", "tesseract-v5.3.4-patch1"),
             3: ("runtime.notification_broker", "rabbitmq-v3.12.14-hotfix"),
             4: ("infra.nacha_parser_version", "nacha-proc-v4.1.0-rc2"),
@@ -1540,7 +1634,7 @@ class BankingScenario(BaseScenario):
             13: ("infra.mbs_pricing_feed", "gnma-feed-adapter-v2.0.3-patch"),
             14: ("deployment.biometric_sdk", "bioauth-v3.1.2-rc1"),
             15: ("infra.sms_gateway_config", "twilio-gw-v4.8.0-hotfix"),
-            16: ("runtime.fraud_model_weights", "FraudNet-v5.3-canary-weights"),
+            16: ("deployment.api_gateway_version", "gateway-v2.9.1-canary"),
             17: ("infra.redis_cluster_config", "redis-7.2.4-sentinel-patch"),
             18: ("deployment.s3_endpoint_config", "vpc-endpoint-v1.3.0-rc2"),
             19: ("infra.aurora_replica_config", "aurora-pg15-iops-tuned-v2"),

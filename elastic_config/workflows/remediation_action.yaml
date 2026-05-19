@@ -31,63 +31,217 @@ inputs:
   - name: dry_run
     type: boolean
     default: true
+  - name: case_id
+    type: string
+    default: ""
+    description: "Direct case ID to close (skips tag search when provided — always pass this when remediating from a case context)"
+  - name: requires_approval
+    type: boolean
+    default: true
+    description: "Pause for operator approval before queueing remediation. Auto-remediate flows pass false."
 
 steps:
-  - name: queue_remediation
-    type: elasticsearch.index
-    with:
-      index: "__NS__-remediation-queue"
-      document:
-        channel: "{{ inputs.channel }}"
-        action_type: "{{ inputs.action_type }}"
-        target_service: "{{ inputs.target_service }}"
-        justification: "{{ inputs.justification }}"
-        dry_run: "{{ inputs.dry_run }}"
-        error_type: "{{ inputs.error_type }}"
-        namespace: "__NS__"
-        status: "pending"
-        mission_id: "__SCENARIO_NAME__"
-      refresh: wait_for
-
-  - name: log_queued
-    type: console
-    with:
-      message: "Remediation QUEUED for channel {{ inputs.channel }}. Backend will process shortly."
-
-  - name: find_open_case
-    type: kibana.request
-    with:
-      method: GET
-      path: "/api/cases/_find?tags=__NS__&tags={{ inputs.error_type }}&status=open&sortField=createdAt&sortOrder=desc&perPage=1&owner=observability"
-
-  - name: close_case
+  # Approval gate — only runs when requires_approval=true. Pauses the workflow
+  # at status WAITING_FOR_INPUT; Agent Builder surfaces the schema-driven
+  # prompt inside the conversation. On denial, comments the case and audits.
+  - name: approval_flow
     type: if
-    condition: "steps.find_open_case.output.cases.0.id : *"
+    condition: "inputs.requires_approval : true"
     steps:
-      - name: update_case_closed
-        type: kibana.updateCase
+      - name: await_operator_approval
+        type: waitForInput
         with:
-          cases:
-            - id: "{{ steps.find_open_case.output.cases[0].id }}"
-              version: "{{ steps.find_open_case.output.cases[0].version }}"
-              status: "closed"
+          message: |
+            Approve remediation for **{{ inputs.error_type }}** on channel {{ inputs.channel }}?
 
-  - name: log_case_closed
-    type: console
-    with:
-      message: "Case closed for {{ inputs.error_type }} (channel {{ inputs.channel }})."
+            - **Action:** {{ inputs.action_type }}
+            - **Target service:** {{ inputs.target_service }}
+            - **Case:** {{ inputs.case_id }}
+            - **Justification:** {{ inputs.justification }}
+          schema:
+            type: object
+            properties:
+              approved:
+                type: boolean
+                title: "Approve remediation"
+              notes:
+                type: string
+                title: "Notes (optional)"
+            required: ["approved"]
 
-  - name: audit_log
-    type: elasticsearch.index
-    with:
-      index: "__NS__-remediation-audit"
-      document:
-        channel: "{{ inputs.channel }}"
-        action_type: "{{ inputs.action_type }}"
-        target_service: "{{ inputs.target_service }}"
-        justification: "{{ inputs.justification }}"
-        dry_run: "{{ inputs.dry_run }}"
-        status: "resolved"
-        case_closed: true
-        mission_id: "__SCENARIO_NAME__"
-      refresh: wait_for
+      - name: handle_denial
+        type: if
+        condition: "steps.await_operator_approval.output.approved : false"
+        steps:
+          - name: comment_denial
+            type: if
+            condition: "inputs.case_id : *"
+            steps:
+              - name: post_denial_comment
+                type: kibana.request
+                with:
+                  method: POST
+                  path: "/api/cases/{{ inputs.case_id }}/comments"
+                  headers:
+                    kbn-xsrf: "true"
+                  body:
+                    type: "user"
+                    comment: |
+                      ## Remediation Denied by Operator
+
+                      - **Proposed action:** {{ inputs.action_type }}
+                      - **Target service:** {{ inputs.target_service }}
+                      - **Error type:** {{ inputs.error_type }}
+                      - **Channel:** {{ inputs.channel }}
+                      - **Operator notes:** {{ steps.await_operator_approval.output.notes }}
+
+                      The case remains open for manual follow-up.
+                    owner: "observability"
+
+          - name: audit_denial
+            type: elasticsearch.index
+            with:
+              index: "__NS__-remediation-audit"
+              document:
+                channel: "{{ inputs.channel }}"
+                action_type: "{{ inputs.action_type }}"
+                target_service: "{{ inputs.target_service }}"
+                error_type: "{{ inputs.error_type }}"
+                status: "denied"
+                approval_requested: true
+                case_closed: false
+                mission_id: "__SCENARIO_NAME__"
+              refresh: wait_for
+
+  # Execute remediation unless the operator explicitly denied. KQL: when the
+  # await step was skipped (auto-remediate path) the approved field doesn't
+  # exist → `: false` doesn't match → NOT(no-match) → true → executes.
+  - name: execute_remediation
+    type: if
+    condition: "NOT steps.await_operator_approval.output.approved : false"
+    steps:
+      - name: queue_remediation
+        type: elasticsearch.index
+        with:
+          index: "__NS__-remediation-queue"
+          document:
+            channel: "{{ inputs.channel }}"
+            action_type: "{{ inputs.action_type }}"
+            target_service: "{{ inputs.target_service }}"
+            justification: "{{ inputs.justification }}"
+            dry_run: "{{ inputs.dry_run }}"
+            error_type: "{{ inputs.error_type }}"
+            namespace: "__NS__"
+            status: "pending"
+            mission_id: "__SCENARIO_NAME__"
+          refresh: wait_for
+
+      - name: log_queued
+        type: console
+        with:
+          message: "Remediation QUEUED for channel {{ inputs.channel }}. Backend will process shortly."
+
+      # Path A: case_id provided — use it directly, no search needed
+      - name: close_provided_case
+        type: if
+        condition: "inputs.case_id : *"
+        steps:
+          - name: add_comment_to_provided_case
+            type: kibana.request
+            with:
+              method: POST
+              path: "/api/cases/{{ inputs.case_id }}/comments"
+              headers:
+                kbn-xsrf: "true"
+              body:
+                type: "user"
+                comment: |
+                  ## Remediation Performed
+
+                  - **Action:** {{ inputs.action_type }}
+                  - **Target Service:** {{ inputs.target_service }}
+                  - **Error Type:** {{ inputs.error_type }}
+                  - **Channel:** {{ inputs.channel }}
+                  - **Dry Run:** {{ inputs.dry_run }}
+                  - **Justification:** {{ inputs.justification }}
+                owner: "observability"
+
+          - name: refetch_provided_case
+            type: kibana.request
+            with:
+              method: GET
+              path: "/api/cases/{{ inputs.case_id }}"
+
+          - name: update_provided_case_closed
+            type: kibana.updateCase
+            with:
+              cases:
+                - id: "{{ steps.refetch_provided_case.output.id }}"
+                  version: "{{ steps.refetch_provided_case.output.version }}"
+                  status: "closed"
+
+      # Path B: no case_id — fall back to tag-based search
+      - name: find_open_case
+        type: kibana.request
+        with:
+          method: GET
+          path: "/api/cases/_find?tags=__NS__&tags={{ inputs.error_type }}&status=open&sortField=createdAt&sortOrder=desc&perPage=1&owner=observability"
+
+      - name: close_case
+        type: if
+        condition: "NOT inputs.case_id : * AND steps.find_open_case.output.cases.0.id : *"
+        steps:
+          - name: add_remediation_comment
+            type: kibana.request
+            with:
+              method: POST
+              path: "/api/cases/{{ steps.find_open_case.output.cases[0].id }}/comments"
+              headers:
+                kbn-xsrf: "true"
+              body:
+                type: "user"
+                comment: |
+                  ## Remediation Performed
+
+                  - **Action:** {{ inputs.action_type }}
+                  - **Target Service:** {{ inputs.target_service }}
+                  - **Error Type:** {{ inputs.error_type }}
+                  - **Channel:** {{ inputs.channel }}
+                  - **Dry Run:** {{ inputs.dry_run }}
+                  - **Justification:** {{ inputs.justification }}
+                owner: "observability"
+
+          - name: refetch_case
+            type: kibana.request
+            with:
+              method: GET
+              path: "/api/cases/{{ steps.find_open_case.output.cases[0].id }}"
+
+          - name: update_case_closed
+            type: kibana.updateCase
+            with:
+              cases:
+                - id: "{{ steps.refetch_case.output.id }}"
+                  version: "{{ steps.refetch_case.output.version }}"
+                  status: "closed"
+
+      - name: log_case_closed
+        type: console
+        with:
+          message: "Case closed for {{ inputs.error_type }} (channel {{ inputs.channel }})."
+
+      - name: audit_log
+        type: elasticsearch.index
+        with:
+          index: "__NS__-remediation-audit"
+          document:
+            channel: "{{ inputs.channel }}"
+            action_type: "{{ inputs.action_type }}"
+            target_service: "{{ inputs.target_service }}"
+            justification: "{{ inputs.justification }}"
+            dry_run: "{{ inputs.dry_run }}"
+            status: "resolved"
+            approval_requested: "{{ inputs.requires_approval }}"
+            case_closed: true
+            mission_id: "__SCENARIO_NAME__"
+          refresh: wait_for

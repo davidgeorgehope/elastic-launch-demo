@@ -26,14 +26,12 @@ def get_cascade_services(channel: int, registry: dict | None = None) -> list[str
 def get_channel_by_subsystem(subsystem: str, registry: dict | None = None) -> list[int]:
     """Return all channel IDs that target a given subsystem."""
     reg = registry or CHANNEL_REGISTRY
-    return [
-        ch_id
-        for ch_id, ch in reg.items()
-        if ch["subsystem"] == subsystem
-    ]
+    return [ch_id for ch_id, ch in reg.items() if ch["subsystem"] == subsystem]
 
 
-def get_channel_by_error_type(error_type: str, registry: dict | None = None) -> int | None:
+def get_channel_by_error_type(
+    error_type: str, registry: dict | None = None
+) -> int | None:
     """Find channel ID by its error_type string."""
     reg = registry or CHANNEL_REGISTRY
     for ch_id, ch in reg.items():
@@ -64,7 +62,4 @@ def get_channel_summary(channel: int, registry: dict | None = None) -> dict | No
 def get_all_channel_summaries(registry: dict | None = None) -> list[dict]:
     """Get summaries for all 20 channels."""
     reg = registry or CHANNEL_REGISTRY
-    return [
-        get_channel_summary(ch_id, registry=reg)
-        for ch_id in sorted(reg.keys())
-    ]
+    return [s for ch_id in sorted(reg.keys()) if (s := get_channel_summary(ch_id, registry=reg)) is not None]

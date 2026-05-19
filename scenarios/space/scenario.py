@@ -1,4 +1,4 @@
-"""NOVA-7 Space Mission scenario — the original demo, now extracted into scenario format."""
+"""NOVA-7 Space Mission scenario — orbital insertion mission with rocket propulsion, guidance, communications, and range safety systems."""
 
 from __future__ import annotations
 
@@ -19,6 +19,10 @@ class SpaceScenario(BaseScenario):
         return "space"
 
     @property
+    def scenario_icon(self) -> str:
+        return "🚀"
+
+    @property
     def scenario_name(self) -> str:
         return "NOVA-7 Space Mission"
 
@@ -33,6 +37,98 @@ class SpaceScenario(BaseScenario):
     @property
     def namespace(self) -> str:
         return "nova7"
+
+    @property
+    def sort_order(self) -> int:
+        return 1
+
+    @property
+    def raw_log_profile(self) -> dict[str, Any]:
+        return {
+            "service_name": "mission-control-api",
+            "user_id_prefix": "gs",
+            "tier_field": "mission_class",
+            "tier_values": [("cubesat", 55), ("geo", 30), ("deep-space", 15)],
+            "country_weights": {"US": 50, "DE": 12, "JP": 10, "GB": 8, "FR": 8, "IN": 6, "AU": 6},
+            "methods": ["GET", "POST", "PUT", "DELETE"],
+            "paths": [
+                "/api/v1/telemetry", "/api/v1/orbits/{satellite}",
+                "/api/v1/commands", "/api/v1/groundstations",
+                "/api/v1/passes", "/api/v1/ephemeris", "/health",
+            ],
+            "change_point_path": "/api/v1/commands",
+        }
+
+    @property
+    def executive_kpi_emitter_service_name(self) -> str:
+        return "mission-control"
+
+    @property
+    def executive_dashboard_intro(self) -> str:
+        return (
+            "**NOVA-7 program view** — mission assurance, orbital mechanics, ground communications, "
+            "and program health KPIs (synthetic `business.*` streams from `mission-control`)."
+        )
+
+    @property
+    def executive_kpi_sections(self) -> list[dict]:
+        return [
+            {
+                "header": "**Mission assurance** — success probability, uptime, faults, recovery, and health",
+                "specs": [
+                    ("Mission success probability (%)", "metrics.business.mission_success_probability_pct"),
+                    ("Critical system uptime (%)", "metrics.business.critical_system_uptime_pct"),
+                    ("Fault events / min", "metrics.business.fault_events_per_min"),
+                    ("Autonomous recovery rate (%)", "metrics.business.autonomous_recovery_rate_pct"),
+                    ("Telemetry coverage (%)", "metrics.business.telemetry_coverage_pct"),
+                    ("Spacecraft health index (0–100)", "metrics.business.spacecraft_health_index_0_100"),
+                ],
+            },
+            {
+                "header": "**Orbital mechanics** — trajectory, delta-V, drift, accuracy, fuel, and altitude",
+                "specs": [
+                    ("Trajectory deviation (m)", "metrics.business.trajectory_deviation_meters"),
+                    ("Delta-V remaining (m/s)", "metrics.business.delta_v_budget_remaining_mps"),
+                    ("Orbital period drift (ms)", "metrics.business.orbital_period_drift_ms"),
+                    ("Maneuver accuracy (%)", "metrics.business.maneuver_accuracy_pct"),
+                    ("Station-keeping fuel (%)", "metrics.business.station_keeping_fuel_remaining_pct"),
+                    ("Perigee altitude (km)", "metrics.business.perigee_altitude_km"),
+                ],
+            },
+            {
+                "header": "**Communications** — downlink rate, uplink latency, contacts, packet loss, and ground",
+                "specs": [
+                    ("Downlink data rate (Mbps)", "metrics.business.downlink_data_rate_mbps"),
+                    ("Uplink latency (ms)", "metrics.business.uplink_latency_ms"),
+                    ("Contact window utilization (%)", "metrics.business.contact_window_utilization_pct"),
+                    ("Packet loss rate (%)", "metrics.business.packet_loss_rate_pct"),
+                    ("Command acceptance rate (%)", "metrics.business.command_acceptance_rate_pct"),
+                    ("Ground station availability (%)", "metrics.business.ground_station_availability_pct"),
+                ],
+            },
+            {
+                "header": "**Program health** — schedule, readiness, SLA, cost variance, risk, and NPS",
+                "specs": [
+                    ("Schedule variance (days)", "metrics.business.schedule_variance_days"),
+                    ("Launch readiness index (0–100)", "metrics.business.launch_readiness_index_0_100"),
+                    ("Contractor SLA compliance (%)", "metrics.business.contractor_sla_compliance_pct"),
+                    ("Cost variance (%)", "metrics.business.cost_variance_pct"),
+                    ("Risk burn-down rate", "metrics.business.risk_burn_down_rate"),
+                    ("Program satisfaction (NPS-like)", "metrics.business.program_net_satisfaction_proxy_nps"),
+                ],
+            },
+        ]
+
+    @property
+    def executive_trend_charts(self) -> list[dict]:
+        return [
+            {"title": "Mission success probability", "field": "metrics.business.mission_success_probability_pct", "y_label": "%"},
+            {"title": "Trajectory deviation (m)", "field": "metrics.business.trajectory_deviation_meters", "y_label": "m"},
+            {"title": "Downlink data rate (Mbps)", "field": "metrics.business.downlink_data_rate_mbps", "y_label": "Mbps"},
+            {"title": "Spacecraft health index", "field": "metrics.business.spacecraft_health_index_0_100", "y_label": "index"},
+            {"title": "Delta-V remaining (m/s)", "field": "metrics.business.delta_v_budget_remaining_mps", "y_label": "m/s"},
+            {"title": "Fault events / min", "field": "metrics.business.fault_events_per_min", "y_label": "events/min"},
+        ]
 
     # ── Services ──────────────────────────────────────────────────────
 
@@ -334,41 +430,40 @@ class SpaceScenario(BaseScenario):
                 ),
             },
             7: {
-                "name": "S-Band Signal Degradation",
-                "subsystem": "communications",
-                "vehicle_section": "antenna_array",
-                "error_type": "COMM-SIGNAL-DEGRAD",
-                "sensor_type": "rf_signal",
-                "affected_services": ["comms-array", "sensor-validator"],
-                "cascade_services": ["mission-control", "telemetry-relay"],
-                "description": "S-band communication signal strength below minimum threshold",
+                "name": "Flight Termination System Check Failure",
+                "subsystem": "safety",
+                "vehicle_section": "vehicle_wide",
+                "error_type": "RSO-FTS-CHECK-FAIL",
+                "sensor_type": "safety_system",
+                "affected_services": ["range-safety", "sensor-validator"],
+                "cascade_services": ["mission-control"],
+                "description": "Flight termination system self-check returning anomalous results",
                 "investigation_notes": (
-                    "Root cause: link budget degradation from reduced EIRP (38.2dBW vs 42.0dBW nominal) combined "
-                    "with antenna gain loss (34.1dBi vs 36.0dBi). EIRP drop indicates transmitter power amplifier "
-                    "(SSPA) degradation or waveguide loss. Antenna gain loss suggests feed horn misalignment or "
-                    "reflector surface distortion. Check atmospheric loss — 0.8dB vs 0.5dB nominal may indicate "
-                    "rain fade on the TDRSS link. Verify S-band transponder AGC levels and lock indicator. "
-                    "Remediation: increase transmit power via COMM_TX_POWER S-BAND +4dB, switch to backup "
-                    "antenna feed if available (COMM_FEED_SELECT S-BAND BACKUP). If rain fade suspected, "
-                    "request TDRSS handover to alternate ground station with clearer weather."
+                    "Root cause: FTS self-test failure code (non-zero) indicates a fault in the command decoder, "
+                    "safe/arm logic, or destruct initiator continuity circuit. Unit is in SAFED state with both "
+                    "inhibits ON — no destruct risk, but a failed FTS is a mandatory launch hold per Range Safety "
+                    "requirements. Check command uplink integrity (AES-256 encrypted link must show LOCKED decoder "
+                    "status). Battery at 98.2% rules out power issues. Error code mapping: 0x01-0x0F = decoder, "
+                    "0x10-0x1F = safe/arm relay, 0x20-0xFF = initiator circuit. "
+                    "Remediation: power-cycle the FTS unit (RSO_FTS_POWER {unit} CYCLE), wait 30s for POST "
+                    "completion, then re-run self-test (RSO_FTS_SELFTEST {unit}). If error persists, request "
+                    "Range Safety Officer approval for FTS unit swap — requires pad access and minimum 2-hour "
+                    "recertification window. FTS-B can serve as backup if FTS-A is non-recoverable."
                 ),
-                "remediation_action": "reset_comms_link",
-                "error_message": "[COMM] COMM-SIGNAL-DEGRAD: link=S-band eb_no={snr_db}dB threshold={min_snr_db}dB channel={rf_channel}",
+                "remediation_action": "reset_safety_system",
+                "error_message": "[RSO] RSO-FTS-CHECK-FAIL: unit={unit_id} self_test=FAIL code={error_code} arm_state=SAFED",
                 "stack_trace": (
-                    "== LINK BUDGET ANALYSIS == S-BAND DOWNLINK ==\n"
-                    "TIMESTAMP: MET+00:04:15.003 | FRAME: 0x4A35 | SEQ: 18448\n"
+                    "== RANGE SAFETY STATUS == FLIGHT TERMINATION SYSTEM ==\n"
+                    "TIMESTAMP: MET+00:04:20.001 | FRAME: 0x4A41 | SEQ: 18460\n"
                     "---------------------------------------------------------------\n"
-                    "PARAMETER            VALUE      NOMINAL    STATUS\n"
-                    "EIRP                 38.2dBW    42.0dBW    DEGRADED\n"
-                    "FREE_SPACE_LOSS      -157.3dB   -157.3dB   --\n"
-                    "ATMOSPHERIC_LOSS     -0.8dB     -0.5dB     MARGINAL\n"
-                    "ANTENNA_GAIN         34.1dBi    36.0dBi    DEGRADED\n"
-                    "Eb/No                {snr_db}dB     {min_snr_db}dB     **BELOW_THRESHOLD**\n"
-                    "CHANNEL              {rf_channel}        --         --\n"
+                    "UNIT      SELF_TEST   CODE       ARM_STATE   BATTERY\n"
+                    "{unit_id}     FAIL        {error_code}     SAFED       98.2%\n"
+                    "FTS-B     PASS        0x00       SAFED       97.8%\n"
                     "---------------------------------------------------------------\n"
-                    "LINK MARGIN: -{snr_db}dB | REQUIRED: +3.0dB\n"
-                    "COMM-SIGNAL-DEGRAD: S-band Eb/No below threshold on channel {rf_channel}\n"
-                    "ACTION: Increase transmit power or switch to backup antenna feed"
+                    "COMMAND_LINK: UP | DECODER: LOCKED | ENCRYPT: AES-256\n"
+                    "DESTRUCT_SAFE_ARM: SAFE | INHIBIT_1: ON | INHIBIT_2: ON\n"
+                    "RSO-FTS-CHECK-FAIL: Unit {unit_id} self-test returned code {error_code}, expected 0x00\n"
+                    "ACTION: Recycle FTS power, repeat self-test sequence"
                 ),
             },
             8: {
@@ -516,39 +611,39 @@ class SpaceScenario(BaseScenario):
                 ),
             },
             12: {
-                "name": "Cross-Cloud Relay Latency",
-                "subsystem": "relay",
-                "vehicle_section": "ground_network",
-                "error_type": "RLY-LATENCY-CRITICAL",
-                "sensor_type": "network_latency",
-                "affected_services": ["telemetry-relay", "sensor-validator"],
-                "cascade_services": ["mission-control", "comms-array"],
-                "description": "Cross-cloud telemetry relay latency exceeds acceptable bounds",
+                "name": "Pad Hydraulic Pressure Loss",
+                "subsystem": "ground",
+                "vehicle_section": "launch_pad",
+                "error_type": "GND-HYDRAULIC-PRESS",
+                "sensor_type": "hydraulic",
+                "affected_services": ["ground-systems", "sensor-validator"],
+                "cascade_services": ["mission-control"],
+                "description": "Launch pad hydraulic system pressure dropping below minimum",
                 "investigation_notes": (
-                    "Root cause: relay buffer saturation at 87% utilization causing queuing delay, compounded by "
-                    "342 retransmits indicating packet loss on the inter-cloud link. High buffer utilization "
-                    "points to a congestion event — either a telemetry data burst from upstream sensors or a "
-                    "bandwidth reduction on the cross-cloud peering link. Check if the affected route has a "
-                    "degraded BGP path (longer AS path) or if cloud provider maintenance reduced link capacity. "
-                    "42ms jitter on the nominal routes confirms the issue is isolated to the affected hop. "
-                    "Remediation: failover to backup route (RLY_ROUTE_FAILOVER {source}->{dest} BACKUP), flush "
-                    "relay buffers (RLY_BUFFER_FLUSH), and enable QoS priority tagging for telemetry frames "
-                    "(RLY_QOS TELEMETRY HIGH). Monitor latency convergence below 200ms threshold."
+                    "Root cause: hydraulic pump wear or external leak causing system pressure to drop below "
+                    "2800PSI minimum. Reservoir level at 78% (nominal >90%) confirms fluid loss. Check filter "
+                    "differential pressure (12PSI is borderline — >15PSI indicates clogged filter starving the pump). "
+                    "Fluid temperature 42.1C is within limits but elevated — could indicate pump working harder "
+                    "to compensate for internal leakage. Inspect hydraulic lines to the holddown clamps and "
+                    "umbilical retract mechanisms for visible leaks. "
+                    "Remediation: switch to backup hydraulic system (GND_HYD_SELECT HYD-B), isolate the affected "
+                    "system (GND_HYD_ISOLATE {system}). Top off reservoir and replace filter element. If pump "
+                    "wear suspected, check pump discharge pressure vs RPM curve. Pad operations cannot proceed "
+                    "with hydraulic pressure below 2800PSI — holddown clamp release requires 3000PSI minimum."
                 ),
-                "remediation_action": "reset_relay_link",
-                "error_message": "[RLY] RLY-LATENCY-CRITICAL: hop={source_cloud}->{dest_cloud} latency={latency_ms}ms threshold={threshold_ms_relay}ms",
+                "remediation_action": "reset_ground_systems",
+                "error_message": "[GND] GND-HYDRAULIC-PRESS: system={system_id} pressure={pressure}PSI min_required={min_pressure}PSI status=LOW",
                 "stack_trace": (
-                    "== RELAY DIAGNOSTIC REPORT == CROSS-CLOUD ROUTER ==\n"
-                    "TIMESTAMP: MET+00:04:17.001 | FRAME: 0x4A3A | SEQ: 18453\n"
+                    "== GROUND SYSTEM DIAGNOSTIC == HYDRAULIC SYSTEM ==\n"
+                    "TIMESTAMP: MET+00:04:18.667 | FRAME: 0x4A3E | SEQ: 18457\n"
                     "---------------------------------------------------------------\n"
-                    "ROUTE                LATENCY    THRESHOLD   JITTER    STATUS\n"
-                    "{source_cloud}->{dest_cloud}         {latency_ms}ms    {threshold_ms_relay}ms      42ms      **CRITICAL**\n"
-                    "gcp->azure           38ms       200ms       5ms       NOMINAL\n"
-                    "aws->azure           45ms       200ms       8ms       NOMINAL\n"
+                    "SYSTEM    PRESSURE   MIN_REQ    FLOW_RATE   STATUS\n"
+                    "{system_id}     {pressure}PSI  {min_pressure}PSI   12.4GPM     **LOW_PRESS**\n"
+                    "HYD-B     2920PSI    2800PSI    11.8GPM     NOMINAL\n"
                     "---------------------------------------------------------------\n"
-                    "ROUTE TABLE: 6 active | BUFFER_UTIL: 87% | RETRANSMITS: 342\n"
-                    "RLY-LATENCY-CRITICAL: {source_cloud}->{dest_cloud} latency {latency_ms}ms exceeds {threshold_ms_relay}ms\n"
-                    "ACTION: Check intermediate hops, consider failover to backup route"
+                    "RESERVOIR_LEVEL: 78% | FLUID_TEMP: 42.1C | FILTER_DP: 12PSI\n"
+                    "GND-HYDRAULIC-PRESS: System {system_id} pressure {pressure}PSI below minimum {min_pressure}PSI\n"
+                    "ACTION: Check pump operation, inspect for hydraulic leaks"
                 ),
             },
             13: {
@@ -624,77 +719,76 @@ class SpaceScenario(BaseScenario):
                 ),
             },
             15: {
-                "name": "Weather Station Data Gap",
-                "subsystem": "ground",
-                "vehicle_section": "launch_pad",
-                "error_type": "GND-WEATHER-GAP",
-                "sensor_type": "weather",
-                "affected_services": ["ground-systems", "sensor-validator"],
-                "cascade_services": ["mission-control", "range-safety"],
-                "description": "Weather monitoring station reporting data gaps",
+                "name": "Range Safety Tracking Loss",
+                "subsystem": "safety",
+                "vehicle_section": "vehicle_wide",
+                "error_type": "RSO-TRACKING-LOSS",
+                "sensor_type": "radar_tracking",
+                "affected_services": ["range-safety", "sensor-validator"],
+                "cascade_services": ["mission-control", "navigation"],
+                "description": "Range safety radar losing vehicle track",
                 "investigation_notes": (
-                    "Root cause: RS-422 serial communication link timeout between the weather station and ground "
-                    "data system. Gap >15s violates launch commit criteria (LCC) for weather data continuity. "
-                    "Check RS-422 cable run for damage (common failure: cable crushed by pad equipment). Verify "
-                    "station processor is running (LED status panel on station enclosure). If station is solar-powered, "
-                    "check battery voltage — overcast conditions can deplete backup batteries. Compare with "
-                    "other stations (WX-SOUTH, WX-EAST, WX-WEST) to rule out ground data system receiver failure. "
-                    "Remediation: dispatch field technician to the affected station for physical inspection. "
-                    "Restart station processor via remote power cycle (GND_WX_RESET {station}). If RS-422 link "
-                    "is down, switch to backup Ethernet path (GND_WX_LINK {station} ETH). Weather LCC waiver "
-                    "requires Range Safety Officer approval if gap exceeds 60s."
+                    "Root cause: tracking radar lost skin-track on the vehicle — track fusion is in COAST mode "
+                    "with 72% prediction confidence, meaning the system is dead-reckoning based on last known "
+                    "state. RCS (radar cross-section) at 12.4 dBsm is adequate, so loss is likely from antenna "
+                    "servo tracking loop dropout, RF interference in the radar band, or physical obstruction "
+                    "in the radar line-of-sight. Check for construction cranes, aircraft, or weather in the "
+                    "radar corridor. Other radars (RDR-2, RDR-3) still tracking confirms single-radar fault. "
+                    "Remediation: command radar reacquisition (RSO_RADAR_REACQ {radar} TARGET VEHICLE), check "
+                    "antenna servo error logs for tracking loop faults (RSO_RADAR_SERVO_STATUS {radar}). If "
+                    "RF interference suspected, run spectrum analyzer sweep (RSO_SPECTRUM_SCAN {radar} BAND). "
+                    "Range Safety requires 2-of-3 radars tracking for launch commit — verify RDR-2/RDR-3 health."
                 ),
-                "remediation_action": "reset_ground_systems",
-                "error_message": "[GND] GND-WEATHER-GAP: station={station_id} gap={gap_seconds}s max_allowed={max_gap}s link=TIMEOUT",
+                "remediation_action": "reset_safety_system",
+                "error_message": "[RSO] RSO-TRACKING-LOSS: radar={radar_id} gap={gap_ms}ms max_allowed={max_gap_ms}ms track_state=COAST",
                 "stack_trace": (
-                    "== GROUND SYSTEM DIAGNOSTIC == WEATHER NETWORK ==\n"
-                    "TIMESTAMP: MET+00:04:18.334 | FRAME: 0x4A3D | SEQ: 18456\n"
+                    "== RANGE SAFETY STATUS == TRACKING RADAR NETWORK ==\n"
+                    "TIMESTAMP: MET+00:04:20.334 | FRAME: 0x4A42 | SEQ: 18461\n"
                     "---------------------------------------------------------------\n"
-                    "STATION     LAST_DATA   GAP_SEC   MAX_GAP   STATUS\n"
-                    "{station_id}   {gap_seconds}s ago    {gap_seconds}s       {max_gap}s       **DATA_GAP**\n"
-                    "WX-SOUTH    2s ago      2s        15s       NOMINAL\n"
-                    "WX-EAST     1s ago      1s        15s       NOMINAL\n"
-                    "WX-WEST     3s ago      3s        15s       NOMINAL\n"
+                    "RADAR     TRACK_GAP   MAX_GAP   RCS_dBsm   STATUS\n"
+                    "{radar_id}     {gap_ms}ms    {max_gap_ms}ms    12.4       **TRACK_LOSS**\n"
+                    "RDR-2     0ms         250ms     14.1       TRACKING\n"
+                    "RDR-3     0ms         250ms     11.8       TRACKING\n"
                     "---------------------------------------------------------------\n"
-                    "NETWORK: 4 stations | PROTOCOL: METAR/SPECI | LINK: RS-422\n"
-                    "GND-WEATHER-GAP: Station {station_id} no data for {gap_seconds}s, max allowed {max_gap}s\n"
-                    "ACTION: Check station comm link, dispatch field technician"
+                    "FUSION_STATE: COAST | PREDICT_CONF: 72% | CORRIDOR: WITHIN\n"
+                    "RSO-TRACKING-LOSS: Radar {radar_id} lost track for {gap_ms}ms, max allowed {max_gap_ms}ms\n"
+                    "ACTION: Verify radar antenna, check for RF interference"
                 ),
             },
             16: {
-                "name": "Pad Hydraulic Pressure Loss",
-                "subsystem": "ground",
-                "vehicle_section": "launch_pad",
-                "error_type": "GND-HYDRAULIC-PRESS",
-                "sensor_type": "hydraulic",
-                "affected_services": ["ground-systems", "sensor-validator"],
-                "cascade_services": ["mission-control"],
-                "description": "Launch pad hydraulic system pressure dropping below minimum",
+                "name": "Cross-Cloud Relay Latency",
+                "subsystem": "relay",
+                "vehicle_section": "ground_network",
+                "error_type": "RLY-LATENCY-CRITICAL",
+                "sensor_type": "network_latency",
+                "affected_services": ["telemetry-relay", "sensor-validator"],
+                "cascade_services": ["mission-control", "comms-array"],
+                "description": "Cross-cloud telemetry relay latency exceeds acceptable bounds",
                 "investigation_notes": (
-                    "Root cause: hydraulic pump wear or external leak causing system pressure to drop below "
-                    "2800PSI minimum. Reservoir level at 78% (nominal >90%) confirms fluid loss. Check filter "
-                    "differential pressure (12PSI is borderline — >15PSI indicates clogged filter starving the pump). "
-                    "Fluid temperature 42.1C is within limits but elevated — could indicate pump working harder "
-                    "to compensate for internal leakage. Inspect hydraulic lines to the holddown clamps and "
-                    "umbilical retract mechanisms for visible leaks. "
-                    "Remediation: switch to backup hydraulic system (GND_HYD_SELECT HYD-B), isolate the affected "
-                    "system (GND_HYD_ISOLATE {system}). Top off reservoir and replace filter element. If pump "
-                    "wear suspected, check pump discharge pressure vs RPM curve. Pad operations cannot proceed "
-                    "with hydraulic pressure below 2800PSI — holddown clamp release requires 3000PSI minimum."
+                    "Root cause: relay buffer saturation at 87% utilization causing queuing delay, compounded by "
+                    "342 retransmits indicating packet loss on the inter-cloud link. High buffer utilization "
+                    "points to a congestion event — either a telemetry data burst from upstream sensors or a "
+                    "bandwidth reduction on the cross-cloud peering link. Check if the affected route has a "
+                    "degraded BGP path (longer AS path) or if cloud provider maintenance reduced link capacity. "
+                    "42ms jitter on the nominal routes confirms the issue is isolated to the affected hop. "
+                    "Remediation: failover to backup route (RLY_ROUTE_FAILOVER {source}->{dest} BACKUP), flush "
+                    "relay buffers (RLY_BUFFER_FLUSH), and enable QoS priority tagging for telemetry frames "
+                    "(RLY_QOS TELEMETRY HIGH). Monitor latency convergence below 200ms threshold."
                 ),
-                "remediation_action": "reset_ground_systems",
-                "error_message": "[GND] GND-HYDRAULIC-PRESS: system={system_id} pressure={pressure}PSI min_required={min_pressure}PSI status=LOW",
+                "remediation_action": "reset_relay_link",
+                "error_message": "[RLY] RLY-LATENCY-CRITICAL: hop={source_cloud}->{dest_cloud} latency={latency_ms}ms threshold={threshold_ms_relay}ms",
                 "stack_trace": (
-                    "== GROUND SYSTEM DIAGNOSTIC == HYDRAULIC SYSTEM ==\n"
-                    "TIMESTAMP: MET+00:04:18.667 | FRAME: 0x4A3E | SEQ: 18457\n"
+                    "== RELAY DIAGNOSTIC REPORT == CROSS-CLOUD ROUTER ==\n"
+                    "TIMESTAMP: MET+00:04:17.001 | FRAME: 0x4A3A | SEQ: 18453\n"
                     "---------------------------------------------------------------\n"
-                    "SYSTEM    PRESSURE   MIN_REQ    FLOW_RATE   STATUS\n"
-                    "{system_id}     {pressure}PSI  {min_pressure}PSI   12.4GPM     **LOW_PRESS**\n"
-                    "HYD-B     2920PSI    2800PSI    11.8GPM     NOMINAL\n"
+                    "ROUTE                LATENCY    THRESHOLD   JITTER    STATUS\n"
+                    "{source_cloud}->{dest_cloud}         {latency_ms}ms    {threshold_ms_relay}ms      42ms      **CRITICAL**\n"
+                    "gcp->azure           38ms       200ms       5ms       NOMINAL\n"
+                    "aws->azure           45ms       200ms       8ms       NOMINAL\n"
                     "---------------------------------------------------------------\n"
-                    "RESERVOIR_LEVEL: 78% | FLUID_TEMP: 42.1C | FILTER_DP: 12PSI\n"
-                    "GND-HYDRAULIC-PRESS: System {system_id} pressure {pressure}PSI below minimum {min_pressure}PSI\n"
-                    "ACTION: Check pump operation, inspect for hydraulic leaks"
+                    "ROUTE TABLE: 6 active | BUFFER_UTIL: 87% | RETRANSMITS: 342\n"
+                    "RLY-LATENCY-CRITICAL: {source_cloud}->{dest_cloud} latency {latency_ms}ms exceeds {threshold_ms_relay}ms\n"
+                    "ACTION: Check intermediate hops, consider failover to backup route"
                 ),
             },
             17: {
@@ -773,77 +867,79 @@ class SpaceScenario(BaseScenario):
                 ),
             },
             19: {
-                "name": "Flight Termination System Check Failure",
-                "subsystem": "safety",
-                "vehicle_section": "vehicle_wide",
-                "error_type": "RSO-FTS-CHECK-FAIL",
-                "sensor_type": "safety_system",
-                "affected_services": ["range-safety", "sensor-validator"],
-                "cascade_services": ["mission-control"],
-                "description": "Flight termination system self-check returning anomalous results",
+                "name": "S-Band Signal Degradation",
+                "subsystem": "communications",
+                "vehicle_section": "antenna_array",
+                "error_type": "COMM-SIGNAL-DEGRAD",
+                "sensor_type": "rf_signal",
+                "affected_services": ["comms-array", "sensor-validator"],
+                "cascade_services": ["mission-control", "telemetry-relay"],
+                "description": "S-band communication signal strength below minimum threshold",
                 "investigation_notes": (
-                    "Root cause: FTS self-test failure code (non-zero) indicates a fault in the command decoder, "
-                    "safe/arm logic, or destruct initiator continuity circuit. Unit is in SAFED state with both "
-                    "inhibits ON — no destruct risk, but a failed FTS is a mandatory launch hold per Range Safety "
-                    "requirements. Check command uplink integrity (AES-256 encrypted link must show LOCKED decoder "
-                    "status). Battery at 98.2% rules out power issues. Error code mapping: 0x01-0x0F = decoder, "
-                    "0x10-0x1F = safe/arm relay, 0x20-0xFF = initiator circuit. "
-                    "Remediation: power-cycle the FTS unit (RSO_FTS_POWER {unit} CYCLE), wait 30s for POST "
-                    "completion, then re-run self-test (RSO_FTS_SELFTEST {unit}). If error persists, request "
-                    "Range Safety Officer approval for FTS unit swap — requires pad access and minimum 2-hour "
-                    "recertification window. FTS-B can serve as backup if FTS-A is non-recoverable."
+                    "Root cause: link budget degradation from reduced EIRP (38.2dBW vs 42.0dBW nominal) combined "
+                    "with antenna gain loss (34.1dBi vs 36.0dBi). EIRP drop indicates transmitter power amplifier "
+                    "(SSPA) degradation or waveguide loss. Antenna gain loss suggests feed horn misalignment or "
+                    "reflector surface distortion. Check atmospheric loss — 0.8dB vs 0.5dB nominal may indicate "
+                    "rain fade on the TDRSS link. Verify S-band transponder AGC levels and lock indicator. "
+                    "Remediation: increase transmit power via COMM_TX_POWER S-BAND +4dB, switch to backup "
+                    "antenna feed if available (COMM_FEED_SELECT S-BAND BACKUP). If rain fade suspected, "
+                    "request TDRSS handover to alternate ground station with clearer weather."
                 ),
-                "remediation_action": "reset_safety_system",
-                "error_message": "[RSO] RSO-FTS-CHECK-FAIL: unit={unit_id} self_test=FAIL code={error_code} arm_state=SAFED",
+                "remediation_action": "reset_comms_link",
+                "error_message": "[COMM] COMM-SIGNAL-DEGRAD: link=S-band eb_no={snr_db}dB threshold={min_snr_db}dB channel={rf_channel}",
                 "stack_trace": (
-                    "== RANGE SAFETY STATUS == FLIGHT TERMINATION SYSTEM ==\n"
-                    "TIMESTAMP: MET+00:04:20.001 | FRAME: 0x4A41 | SEQ: 18460\n"
+                    "== LINK BUDGET ANALYSIS == S-BAND DOWNLINK ==\n"
+                    "TIMESTAMP: MET+00:04:15.003 | FRAME: 0x4A35 | SEQ: 18448\n"
                     "---------------------------------------------------------------\n"
-                    "UNIT      SELF_TEST   CODE       ARM_STATE   BATTERY\n"
-                    "{unit_id}     FAIL        {error_code}     SAFED       98.2%\n"
-                    "FTS-B     PASS        0x00       SAFED       97.8%\n"
+                    "PARAMETER            VALUE      NOMINAL    STATUS\n"
+                    "EIRP                 38.2dBW    42.0dBW    DEGRADED\n"
+                    "FREE_SPACE_LOSS      -157.3dB   -157.3dB   --\n"
+                    "ATMOSPHERIC_LOSS     -0.8dB     -0.5dB     MARGINAL\n"
+                    "ANTENNA_GAIN         34.1dBi    36.0dBi    DEGRADED\n"
+                    "Eb/No                {snr_db}dB     {min_snr_db}dB     **BELOW_THRESHOLD**\n"
+                    "CHANNEL              {rf_channel}        --         --\n"
                     "---------------------------------------------------------------\n"
-                    "COMMAND_LINK: UP | DECODER: LOCKED | ENCRYPT: AES-256\n"
-                    "DESTRUCT_SAFE_ARM: SAFE | INHIBIT_1: ON | INHIBIT_2: ON\n"
-                    "RSO-FTS-CHECK-FAIL: Unit {unit_id} self-test returned code {error_code}, expected 0x00\n"
-                    "ACTION: Recycle FTS power, repeat self-test sequence"
+                    "LINK MARGIN: -{snr_db}dB | REQUIRED: +3.0dB\n"
+                    "COMM-SIGNAL-DEGRAD: S-band Eb/No below threshold on channel {rf_channel}\n"
+                    "ACTION: Increase transmit power or switch to backup antenna feed"
                 ),
             },
             20: {
-                "name": "Range Safety Tracking Loss",
-                "subsystem": "safety",
-                "vehicle_section": "vehicle_wide",
-                "error_type": "RSO-TRACKING-LOSS",
-                "sensor_type": "radar_tracking",
-                "affected_services": ["range-safety", "sensor-validator"],
-                "cascade_services": ["mission-control", "navigation"],
-                "description": "Range safety radar losing vehicle track",
+                "name": "Weather Station Data Gap",
+                "subsystem": "ground",
+                "vehicle_section": "launch_pad",
+                "error_type": "GND-WEATHER-GAP",
+                "sensor_type": "weather",
+                "affected_services": ["ground-systems", "sensor-validator"],
+                "cascade_services": ["mission-control", "range-safety"],
+                "description": "Weather monitoring station reporting data gaps",
                 "investigation_notes": (
-                    "Root cause: tracking radar lost skin-track on the vehicle — track fusion is in COAST mode "
-                    "with 72% prediction confidence, meaning the system is dead-reckoning based on last known "
-                    "state. RCS (radar cross-section) at 12.4 dBsm is adequate, so loss is likely from antenna "
-                    "servo tracking loop dropout, RF interference in the radar band, or physical obstruction "
-                    "in the radar line-of-sight. Check for construction cranes, aircraft, or weather in the "
-                    "radar corridor. Other radars (RDR-2, RDR-3) still tracking confirms single-radar fault. "
-                    "Remediation: command radar reacquisition (RSO_RADAR_REACQ {radar} TARGET VEHICLE), check "
-                    "antenna servo error logs for tracking loop faults (RSO_RADAR_SERVO_STATUS {radar}). If "
-                    "RF interference suspected, run spectrum analyzer sweep (RSO_SPECTRUM_SCAN {radar} BAND). "
-                    "Range Safety requires 2-of-3 radars tracking for launch commit — verify RDR-2/RDR-3 health."
+                    "Root cause: RS-422 serial communication link timeout between the weather station and ground "
+                    "data system. Gap >15s violates launch commit criteria (LCC) for weather data continuity. "
+                    "Check RS-422 cable run for damage (common failure: cable crushed by pad equipment). Verify "
+                    "station processor is running (LED status panel on station enclosure). If station is solar-powered, "
+                    "check battery voltage — overcast conditions can deplete backup batteries. Compare with "
+                    "other stations (WX-SOUTH, WX-EAST, WX-WEST) to rule out ground data system receiver failure. "
+                    "Remediation: dispatch field technician to the affected station for physical inspection. "
+                    "Restart station processor via remote power cycle (GND_WX_RESET {station}). If RS-422 link "
+                    "is down, switch to backup Ethernet path (GND_WX_LINK {station} ETH). Weather LCC waiver "
+                    "requires Range Safety Officer approval if gap exceeds 60s."
                 ),
-                "remediation_action": "reset_safety_system",
-                "error_message": "[RSO] RSO-TRACKING-LOSS: radar={radar_id} gap={gap_ms}ms max_allowed={max_gap_ms}ms track_state=COAST",
+                "remediation_action": "reset_ground_systems",
+                "error_message": "[GND] GND-WEATHER-GAP: station={station_id} gap={gap_seconds}s max_allowed={max_gap}s link=TIMEOUT",
                 "stack_trace": (
-                    "== RANGE SAFETY STATUS == TRACKING RADAR NETWORK ==\n"
-                    "TIMESTAMP: MET+00:04:20.334 | FRAME: 0x4A42 | SEQ: 18461\n"
+                    "== GROUND SYSTEM DIAGNOSTIC == WEATHER NETWORK ==\n"
+                    "TIMESTAMP: MET+00:04:18.334 | FRAME: 0x4A3D | SEQ: 18456\n"
                     "---------------------------------------------------------------\n"
-                    "RADAR     TRACK_GAP   MAX_GAP   RCS_dBsm   STATUS\n"
-                    "{radar_id}     {gap_ms}ms    {max_gap_ms}ms    12.4       **TRACK_LOSS**\n"
-                    "RDR-2     0ms         250ms     14.1       TRACKING\n"
-                    "RDR-3     0ms         250ms     11.8       TRACKING\n"
+                    "STATION     LAST_DATA   GAP_SEC   MAX_GAP   STATUS\n"
+                    "{station_id}   {gap_seconds}s ago    {gap_seconds}s       {max_gap}s       **DATA_GAP**\n"
+                    "WX-SOUTH    2s ago      2s        15s       NOMINAL\n"
+                    "WX-EAST     1s ago      1s        15s       NOMINAL\n"
+                    "WX-WEST     3s ago      3s        15s       NOMINAL\n"
                     "---------------------------------------------------------------\n"
-                    "FUSION_STATE: COAST | PREDICT_CONF: 72% | CORRIDOR: WITHIN\n"
-                    "RSO-TRACKING-LOSS: Radar {radar_id} lost track for {gap_ms}ms, max allowed {max_gap_ms}ms\n"
-                    "ACTION: Verify radar antenna, check for RF interference"
+                    "NETWORK: 4 stations | PROTOCOL: METAR/SPECI | LINK: RS-422\n"
+                    "GND-WEATHER-GAP: Station {station_id} no data for {gap_seconds}s, max allowed {max_gap}s\n"
+                    "ACTION: Check station comm link, dispatch field technician"
                 ),
             },
         }
@@ -1064,9 +1160,7 @@ class SpaceScenario(BaseScenario):
             font_family="'JetBrains Mono', 'Fira Code', monospace",
             font_mono="'JetBrains Mono', 'Fira Code', monospace",
             scanline_effect=True,
-            dashboard_title="Mission Control",
             chaos_title="Chaos Controller",
-            landing_title="NOVA-7 Mission Control",
             service_label="System",
             channel_label="Channel",
         )
@@ -1138,15 +1232,15 @@ class SpaceScenario(BaseScenario):
     # ── Service Classes ───────────────────────────────────────────────
 
     def get_service_classes(self) -> list[type]:
-        from app.services.comms_array import CommsArrayService
-        from app.services.fuel_system import FuelSystemService
-        from app.services.ground_systems import GroundSystemsService
-        from app.services.mission_control import MissionControlService
-        from app.services.navigation import NavigationService
-        from app.services.payload_monitor import PayloadMonitorService
-        from app.services.range_safety import RangeSafetyService
-        from app.services.sensor_validator import SensorValidatorService
-        from app.services.telemetry_relay import TelemetryRelayService
+        from scenarios.space.services.comms_array import CommsArrayService
+        from scenarios.space.services.fuel_system import FuelSystemService
+        from scenarios.space.services.ground_systems import GroundSystemsService
+        from scenarios.space.services.mission_control import MissionControlService
+        from scenarios.space.services.navigation import NavigationService
+        from scenarios.space.services.payload_monitor import PayloadMonitorService
+        from scenarios.space.services.range_safety import RangeSafetyService
+        from scenarios.space.services.sensor_validator import SensorValidatorService
+        from scenarios.space.services.telemetry_relay import TelemetryRelayService
 
         return [
             MissionControlService,
@@ -1245,11 +1339,10 @@ class SpaceScenario(BaseScenario):
                 "sensor-validator": {"validation.boresight_error_arcsec": round(rng.uniform(8.0, 40.0), 1), "validation.optics_contamination": rng.choice([True, False])},
                 "mission-control": {"upstream.degraded_subsystem": "guidance"},
             },
-            7: {  # S-Band Signal Degradation
-                "comms-array": {"comms.eirp_dbw": round(rng.uniform(35, 39), 1), "comms.antenna_gain_dbi": round(rng.uniform(32, 35), 1)},
-                "sensor-validator": {"validation.link_margin_db": round(rng.uniform(-3, 0), 1), "validation.rain_fade_detected": rng.choice([True, False])},
-                "mission-control": {"upstream.degraded_subsystem": "communications", "telemetry.comm_status": "degraded"},
-                "telemetry-relay": {"relay.s_band_quality": "poor"},
+            7: {  # Flight Termination System Check Failure
+                "range-safety": {"safety.fts_error_code": f"0x{rng.randint(1, 255):02X}", "safety.fts_battery_pct": round(rng.uniform(95, 99), 1)},
+                "sensor-validator": {"validation.fts_self_test": "FAIL", "validation.decoder_status": rng.choice(["LOCKED", "DEGRADED"])},
+                "mission-control": {"upstream.degraded_subsystem": "safety", "telemetry.launch_hold": "FTS"},
             },
             8: {  # X-Band Packet Loss
                 "comms-array": {"comms.ber": rng.choice(["1.2e-04", "5.8e-05", "3.1e-04"]), "comms.fec_failure_count": rng.randint(500, 1200)},
@@ -1273,11 +1366,10 @@ class SpaceScenario(BaseScenario):
                 "mission-control": {"upstream.degraded_subsystem": "payload"},
                 "range-safety": {"safety.structural_status": "monitor"},
             },
-            12: {  # Cross-Cloud Relay Latency
-                "telemetry-relay": {"relay.buffer_utilization_pct": round(rng.uniform(75, 95), 1), "relay.retransmit_count": rng.randint(200, 600)},
-                "sensor-validator": {"validation.relay_health": "degraded", "validation.affected_route": rng.choice(["aws->gcp", "gcp->azure", "aws->azure"])},
-                "mission-control": {"upstream.degraded_subsystem": "relay", "telemetry.data_freshness": "stale"},
-                "comms-array": {"comms.upstream_relay_status": "congested"},
+            12: {  # Pad Hydraulic Pressure Loss
+                "ground-systems": {"ground.hyd_reservoir_pct": round(rng.uniform(65, 82), 0), "ground.filter_dp_psi": round(rng.uniform(10, 18), 1)},
+                "sensor-validator": {"validation.hydraulic_pressure_status": "low", "validation.system_affected": rng.choice(["HYD-A", "HYD-B"])},
+                "mission-control": {"upstream.degraded_subsystem": "ground"},
             },
             13: {  # Relay Packet Corruption
                 "telemetry-relay": {"relay.crc_fail_pattern": "burst", "relay.sfp_rx_power_dbm": round(rng.uniform(-20, -16), 1)},
@@ -1290,16 +1382,17 @@ class SpaceScenario(BaseScenario):
                 "mission-control": {"upstream.degraded_subsystem": "ground", "telemetry.pad_status": "caution"},
                 "fuel-system": {"propulsion.ground_power_status": "unstable"},
             },
-            15: {  # Weather Station Data Gap
-                "ground-systems": {"ground.wx_link_type": "RS-422", "ground.station_battery_pct": round(rng.uniform(15, 45), 0)},
-                "sensor-validator": {"validation.weather_data_gap_s": rng.randint(20, 120), "validation.station_affected": rng.choice(["WX-NORTH", "WX-SOUTH"])},
-                "mission-control": {"upstream.degraded_subsystem": "ground", "telemetry.lcc_weather": "violated"},
-                "range-safety": {"safety.weather_lcc_status": "NO-GO"},
+            15: {  # Range Safety Tracking Loss
+                "range-safety": {"safety.fusion_state": "COAST", "safety.predict_confidence_pct": round(rng.uniform(55, 80), 0)},
+                "sensor-validator": {"validation.radar_track_status": "LOST", "validation.affected_radar": rng.choice(["RDR-1", "RDR-2", "RDR-3"])},
+                "mission-control": {"upstream.degraded_subsystem": "safety", "telemetry.tracking_status": "degraded"},
+                "navigation": {"gnc.external_tracking": "unavailable"},
             },
-            16: {  # Pad Hydraulic Pressure Loss
-                "ground-systems": {"ground.hyd_reservoir_pct": round(rng.uniform(65, 82), 0), "ground.filter_dp_psi": round(rng.uniform(10, 18), 1)},
-                "sensor-validator": {"validation.hydraulic_pressure_status": "low", "validation.system_affected": rng.choice(["HYD-A", "HYD-B"])},
-                "mission-control": {"upstream.degraded_subsystem": "ground"},
+            16: {  # Cross-Cloud Relay Latency
+                "telemetry-relay": {"relay.buffer_utilization_pct": round(rng.uniform(75, 95), 1), "relay.retransmit_count": rng.randint(200, 600)},
+                "sensor-validator": {"validation.relay_health": "degraded", "validation.affected_route": rng.choice(["aws->gcp", "gcp->azure", "aws->azure"])},
+                "mission-control": {"upstream.degraded_subsystem": "relay", "telemetry.data_freshness": "stale"},
+                "comms-array": {"comms.upstream_relay_status": "congested"},
             },
             17: {  # Sensor Validation Pipeline Stall
                 "sensor-validator": {"validation.heap_usage_pct": round(rng.uniform(85, 97), 0), "validation.gc_pause_ms": rng.randint(80, 250)},
@@ -1312,16 +1405,17 @@ class SpaceScenario(BaseScenario):
                 "fuel-system": {"propulsion.calibration_confidence": "low"},
                 "navigation": {"gnc.calibration_confidence": "low"},
             },
-            19: {  # Flight Termination System Check Failure
-                "range-safety": {"safety.fts_error_code": f"0x{rng.randint(1, 255):02X}", "safety.fts_battery_pct": round(rng.uniform(95, 99), 1)},
-                "sensor-validator": {"validation.fts_self_test": "FAIL", "validation.decoder_status": rng.choice(["LOCKED", "DEGRADED"])},
-                "mission-control": {"upstream.degraded_subsystem": "safety", "telemetry.launch_hold": "FTS"},
+            19: {  # S-Band Signal Degradation
+                "comms-array": {"comms.eirp_dbw": round(rng.uniform(35, 39), 1), "comms.antenna_gain_dbi": round(rng.uniform(32, 35), 1)},
+                "sensor-validator": {"validation.link_margin_db": round(rng.uniform(-3, 0), 1), "validation.rain_fade_detected": rng.choice([True, False])},
+                "mission-control": {"upstream.degraded_subsystem": "communications", "telemetry.comm_status": "degraded"},
+                "telemetry-relay": {"relay.s_band_quality": "poor"},
             },
-            20: {  # Range Safety Tracking Loss
-                "range-safety": {"safety.fusion_state": "COAST", "safety.predict_confidence_pct": round(rng.uniform(55, 80), 0)},
-                "sensor-validator": {"validation.radar_track_status": "LOST", "validation.affected_radar": rng.choice(["RDR-1", "RDR-2", "RDR-3"])},
-                "mission-control": {"upstream.degraded_subsystem": "safety", "telemetry.tracking_status": "degraded"},
-                "navigation": {"gnc.external_tracking": "unavailable"},
+            20: {  # Weather Station Data Gap
+                "ground-systems": {"ground.wx_link_type": "RS-422", "ground.station_battery_pct": round(rng.uniform(15, 45), 0)},
+                "sensor-validator": {"validation.weather_data_gap_s": rng.randint(20, 120), "validation.station_affected": rng.choice(["WX-NORTH", "WX-SOUTH"])},
+                "mission-control": {"upstream.degraded_subsystem": "ground", "telemetry.lcc_weather": "violated"},
+                "range-safety": {"safety.weather_lcc_status": "NO-GO"},
             },
         }
         channel_clues = clues.get(channel, {})
@@ -1335,20 +1429,20 @@ class SpaceScenario(BaseScenario):
             4: ("network.dns_resolver", "coredns-v1.11.4-patch2"),
             5: ("infra.ntp_source", "gps-pps-backup"),
             6: ("deployment.image_tag", "star-tracker-v3.1.0-beta"),
-            7: ("network.proxy_config", "envoy-v1.28-experimental"),
+            7: ("deployment.fts_firmware", "fts-controller-v5.2.0-rc1"),
             8: ("infra.nic_driver", "ena-2.12.3-unstable"),
             9: ("deployment.servo_fw", "gimbal-ctrl-v2.0.1-rc3"),
             10: ("runtime.jvm_flags", "-XX:+UseZGC -Xmx2g"),
             11: ("infra.mount_revision", "iso-bracket-rev-C"),
-            12: ("network.bgp_as_path", "64512-64513-64515"),
+            12: ("infra.hyd_pump_model", "parker-pvp48-rebuilt"),
             13: ("infra.sfp_model", "FTRJ1319P1BTL-v2"),
             14: ("infra.ups_firmware", "apc-smart-ups-v4.1.2"),
-            15: ("deployment.wx_station_fw", "davis-v3.2.1-patched"),
-            16: ("infra.hyd_pump_model", "parker-pvp48-rebuilt"),
+            15: ("infra.radar_firmware", "rdr-track-v8.1.3-beta"),
+            16: ("network.bgp_as_path", "64512-64513-64515"),
             17: ("runtime.heap_config", "jvm-12g-g1gc-experimental"),
             18: ("infra.rtc_crystal", "txco-40mhz-batch-2024Q3"),
-            19: ("deployment.fts_firmware", "fts-controller-v5.2.0-rc1"),
-            20: ("infra.radar_firmware", "rdr-track-v8.1.3-beta"),
+            19: ("network.proxy_config", "envoy-v1.28-experimental"),
+            20: ("deployment.wx_station_fw", "davis-v3.2.1-patched"),
         }
         attr_key, attr_val = correlation_attrs.get(channel, ("deployment.config_version", "unknown"))
         # 90% on errors, 5% on healthy

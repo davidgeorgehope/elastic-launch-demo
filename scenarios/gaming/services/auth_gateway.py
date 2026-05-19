@@ -15,7 +15,13 @@ class AuthGatewayService(BaseService):
         super().__init__(chaos_controller, otlp_client)
         self._auth_requests = 0
         self._last_auth_report = time.time()
-        self._providers = ["oauth-google", "oauth-discord", "oauth-steam", "oauth-epic", "email-password"]
+        self._providers = [
+            "oauth-google",
+            "oauth-discord",
+            "oauth-steam",
+            "oauth-epic",
+            "email-password",
+        ]
 
     def generate_telemetry(self) -> None:
         # ── Fault injection ────────────────────────────────────
@@ -36,12 +42,20 @@ class AuthGatewayService(BaseService):
             self._last_auth_report = time.time()
 
         # Metrics
-        auth_latency = round(random.uniform(10.0, 60.0), 1) if not active_channels else round(random.uniform(200.0, 2000.0), 1)
+        auth_latency = (
+            round(random.uniform(10.0, 60.0), 1)
+            if not active_channels
+            else round(random.uniform(200.0, 2000.0), 1)
+        )
         self.emit_metric("auth.request_latency_ms", auth_latency, "ms")
         self.emit_metric("auth.total_requests", float(self._auth_requests), "requests")
         active_sessions = random.randint(20000, 150000)
         self.emit_metric("auth.active_sessions", float(active_sessions), "sessions")
-        token_refresh_rate = random.randint(100, 1500) if not active_channels else random.randint(5000, 50000)
+        token_refresh_rate = (
+            random.randint(100, 1500)
+            if not active_channels
+            else random.randint(5000, 50000)
+        )
         self.emit_metric("auth.token_refresh_rate", float(token_refresh_rate), "req/s")
 
     def _emit_auth_request(self) -> None:

@@ -22,14 +22,14 @@ Choose from 6 industry verticals — space launch, sports streaming, financial s
   │  │  └────────────┘     └────────────┘    └────────────┘  │  │
   │  └────────────────────────────────────────────────────────┘  │
   │                                                              │
-  │  FastAPI (:80)                    OTLP/HTTP (direct)         │
+  │  FastAPI (:8080)                  OTLP/HTTP (direct)         │
   │  ┌──────────────────┐            ┌──────────────────────┐   │
   │  │ Scenario Selector │──deploy──>│ Elastic Cloud        │   │
-  │  │ Dashboard         │           │ ┌──────────────────┐ │   │
-  │  │ Chaos Controller  │──OTLP───> │ │ Elasticsearch    │ │   │
-  │  │ Landing Page      │           │ │ Kibana           │ │   │
-  │  │ Python Deployer   │──REST───> │ │ AI Agent         │ │   │
-  │  │ Log Generators    │           │ │ Workflows        │ │   │
+  │  │ Chaos Controller  │──OTLP───> │ ┌──────────────────┐ │   │
+  │  │ Python Deployer   │──REST───> │ │ Elasticsearch    │ │   │
+  │  │ Log Generators    │           │ │ Kibana           │ │   │
+  │  │                   │           │ │ AI Agent         │ │   │
+  │  │                   │           │ │ Workflows        │ │   │
   │  └──────────────────┘            │ │ Alerting Rules   │ │   │
   │                                  │ └──────────────────┘ │   │
   │                                  └──────────────────────┘   │
@@ -49,7 +49,6 @@ Choose from 6 industry verticals — space launch, sports streaming, financial s
 - **Cascade effects** — primary faults propagate warnings to dependent services
 - **Web-based scenario selector** — choose an industry vertical, connect to Elastic, deploy with one click
 - **Python deployer** — automatically provisions agent, tools, workflows, alert rules, dashboards, KB docs, and significant events in Elastic
-- **Live dashboard** with real-time WebSocket updates and per-scenario theming
 - **Chaos controller UI** for triggering and resolving faults during demos
 - **Background telemetry generators** — host metrics, Kubernetes metrics, Nginx metrics, VPC flow logs, MySQL logs, distributed traces
 - **Elastic integration** — significant event detection with ES|QL rules, AI agent investigation, automated remediation workflows
@@ -89,7 +88,7 @@ pip install -r requirements.txt
 ### 3. Start the App
 
 ```bash
-sudo python3 -m uvicorn app.main:app --host 0.0.0.0 --port 80
+python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8080
 ```
 
 ### 4. Open the Scenario Selector
@@ -105,8 +104,6 @@ Navigate to `http://<your-host>/` — this opens the scenario selector where you
 | URL | Description |
 |-----|-------------|
 | `http://<host>/` | Scenario selector (choose and deploy) |
-| `http://<host>/home?deployment_id=...` | Scenario landing page |
-| `http://<host>/dashboard?deployment_id=...` | Live mission control dashboard |
 | `http://<host>/chaos?deployment_id=...` | Chaos controller UI |
 | `http://<host>/health` | Health check endpoint |
 | `http://<host>/api/status` | Full system status API |
@@ -213,12 +210,6 @@ POST /api/notify/email              # Send email notification
 GET  /api/user/info                 # Current user info
 ```
 
-### WebSocket
-
-```
-WS   /ws/dashboard                  # Real-time dashboard updates
-```
-
 ---
 
 ## Project Structure
@@ -242,10 +233,6 @@ elastic-launch-demo/
 │   │   ├── controller.py           # Channel state management
 │   │   └── channels.py             # Channel definitions helper
 │   ├── selector/static/             # Scenario selector UI (front page)
-│   ├── landing/static/              # Per-scenario landing page
-│   ├── dashboard/                   # Live dashboard
-│   │   ├── websocket.py            # WebSocket handler
-│   │   └── static/                  # HTML/CSS/JS
 │   ├── chaos_ui/static/             # Chaos controller UI
 │   └── notify/                      # Notification handlers
 │       ├── twilio_handler.py        # SMS + voice via Twilio
@@ -311,7 +298,6 @@ elastic-launch-demo/
 | Observability Platform | Elastic Cloud (Elasticsearch, Kibana) |
 | AI Agent | Elastic Agent Builder (tools, KB, system prompt) |
 | Workflows | Elastic Workflows (alert → search → AI agent → remediate → email) |
-| Real-time Updates | WebSockets |
 | Persistence | SQLite (deployment state) |
-| Deployment | EC2 (uvicorn on port 80) |
+| Deployment | EC2 (uvicorn on port 8080) |
 | Notifications | Elastic Cloud SMTP, Twilio (SMS + voice), Slack Webhooks |

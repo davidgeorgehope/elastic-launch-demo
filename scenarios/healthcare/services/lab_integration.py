@@ -15,7 +15,17 @@ class LabIntegrationService(BaseService):
         super().__init__(chaos_controller, otlp_client)
         self._results_processed = 0
         self._last_queue_report = time.time()
-        self._test_types = ["CBC", "BMP", "CMP", "PT/INR", "Troponin", "BNP", "Lipase", "UA", "Blood Culture"]
+        self._test_types = [
+            "CBC",
+            "BMP",
+            "CMP",
+            "PT/INR",
+            "Troponin",
+            "BNP",
+            "Lipase",
+            "UA",
+            "Blood Culture",
+        ]
 
     def generate_telemetry(self) -> None:
         # -- Fault injection ------------------------------------
@@ -37,8 +47,12 @@ class LabIntegrationService(BaseService):
 
         # Metrics
         self._results_processed += 1
-        self.emit_metric("lab.results_processed", float(self._results_processed), "results")
-        tat_minutes = random.randint(10, 45) if not active_channels else random.randint(90, 300)
+        self.emit_metric(
+            "lab.results_processed", float(self._results_processed), "results"
+        )
+        tat_minutes = (
+            random.randint(10, 45) if not active_channels else random.randint(90, 300)
+        )
         self.emit_metric("lab.avg_turnaround_minutes", float(tat_minutes), "min")
         self.emit_metric("lab.pending_orders", float(random.randint(20, 80)), "orders")
 

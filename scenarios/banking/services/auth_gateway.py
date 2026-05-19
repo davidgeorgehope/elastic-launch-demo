@@ -32,10 +32,20 @@ class AuthGatewayService(BaseService):
             self._emit_auth_summary()
             self._last_summary = time.time()
 
-        auth_rate = round(random.uniform(98, 99.9), 2) if not active_channels else round(random.uniform(60, 85), 2)
+        auth_rate = (
+            round(random.uniform(98, 99.9), 2)
+            if not active_channels
+            else round(random.uniform(60, 85), 2)
+        )
         self.emit_metric("auth_gateway.success_rate", auth_rate, "%")
-        self.emit_metric("auth_gateway.active_sessions", float(random.randint(40000, 120000)), "sessions")
-        self.emit_metric("auth_gateway.mfa_delivery_rate", round(random.uniform(95, 99.5), 1), "%")
+        self.emit_metric(
+            "auth_gateway.active_sessions",
+            float(random.randint(40000, 120000)),
+            "sessions",
+        )
+        self.emit_metric(
+            "auth_gateway.mfa_delivery_rate", round(random.uniform(95, 99.5), 1), "%"
+        )
 
     def _emit_auth_event(self) -> None:
         self._auth_count += 1

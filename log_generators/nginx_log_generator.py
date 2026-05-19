@@ -18,7 +18,13 @@ import signal
 import threading
 import time
 
-from app.telemetry import OTLPClient, _format_attributes, SCHEMA_URL, SCOPE_NAME, _now_ns
+from app.telemetry import (
+    OTLPClient,
+    _format_attributes,
+    SCHEMA_URL,
+    SCOPE_NAME,
+    _now_ns,
+)
 from app.config import SEVERITY_MAP, NAMESPACE
 
 # Span kind constants
@@ -60,20 +66,52 @@ ENDPOINTS = [
     "/readyz",
 ]
 
-METHODS = ["GET", "GET", "GET", "GET", "POST", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"]
+METHODS = [
+    "GET",
+    "GET",
+    "GET",
+    "GET",
+    "POST",
+    "POST",
+    "PUT",
+    "DELETE",
+    "HEAD",
+    "OPTIONS",
+]
 
 STATUS_WEIGHTS = {
-    200: 60, 301: 3, 304: 8, 400: 5, 401: 3, 403: 2, 404: 8, 405: 1,
-    500: 4, 502: 3, 503: 2, 504: 1,
+    200: 60,
+    301: 3,
+    304: 8,
+    400: 5,
+    401: 3,
+    403: 2,
+    404: 8,
+    405: 1,
+    500: 4,
+    502: 3,
+    503: 2,
+    504: 1,
 }
 STATUS_CODES = []
 for code, weight in STATUS_WEIGHTS.items():
     STATUS_CODES.extend([code] * weight)
 
 CLIENT_IPS = [
-    "10.0.1.42", "10.0.1.87", "10.0.2.15", "10.0.2.200", "10.0.3.55",
-    "172.16.0.10", "172.16.0.25", "172.16.1.100", "192.168.1.1", "192.168.1.50",
-    "203.0.113.42", "203.0.113.99", "198.51.100.23", "198.51.100.77",
+    "10.0.1.42",
+    "10.0.1.87",
+    "10.0.2.15",
+    "10.0.2.200",
+    "10.0.3.55",
+    "172.16.0.10",
+    "172.16.0.25",
+    "172.16.1.100",
+    "192.168.1.1",
+    "192.168.1.50",
+    "203.0.113.42",
+    "203.0.113.99",
+    "198.51.100.23",
+    "198.51.100.77",
 ]
 
 USER_AGENTS = [
@@ -98,99 +136,112 @@ ERROR_MESSAGES = [
     "client intended to send too large body: 10485760 bytes",
     "access forbidden by rule",
     "SSL_do_handshake() failed (SSL: error:0A000126:SSL routines::unexpected eof while reading)",
-    "open() \"/usr/share/nginx/html/missing\" failed (2: No such file or directory)",
+    'open() "/usr/share/nginx/html/missing" failed (2: No such file or directory)',
     "upstream sent too big header while reading response header from upstream",
 ]
 
 UPSTREAM_ADDRS = [
-    "10.0.1.100:8080", "10.0.1.101:8080", "10.0.1.102:8080",
-    "10.0.2.100:8080", "10.0.2.101:8080",
+    "10.0.1.100:8080",
+    "10.0.1.101:8080",
+    "10.0.1.102:8080",
+    "10.0.2.100:8080",
+    "10.0.2.101:8080",
 ]
+
 
 # ── Resource builders ─────────────────────────────────────────────────────────
 def _build_access_resource() -> dict:
     return {
-        "attributes": _format_attributes({
-            "service.name": "nginx-proxy",
-            "service.namespace": NAMESPACE,
-            "service.version": "1.25.4",
-            "service.instance.id": "nginx-proxy-001",
-            "telemetry.sdk.language": "python",
-            "telemetry.sdk.name": "opentelemetry",
-            "telemetry.sdk.version": "1.24.0",
-            "cloud.provider": "gcp",
-            "cloud.platform": "gcp_compute_engine",
-            "cloud.region": "us-central1",
-            "cloud.availability_zone": "us-central1-a",
-            "deployment.environment": f"production-{NAMESPACE}",
-            "host.name": f"{NAMESPACE}-proxy-host",
-            "host.architecture": "amd64",
-            "os.type": "linux",
-            "data_stream.type": "logs",
-            "data_stream.dataset": "nginx.access",
-            "data_stream.namespace": "default",
-        }),
+        "attributes": _format_attributes(
+            {
+                "service.name": "nginx-proxy",
+                "service.namespace": NAMESPACE,
+                "service.version": "1.25.4",
+                "service.instance.id": "nginx-proxy-001",
+                "telemetry.sdk.language": "python",
+                "telemetry.sdk.name": "opentelemetry",
+                "telemetry.sdk.version": "1.24.0",
+                "cloud.provider": "gcp",
+                "cloud.platform": "gcp_compute_engine",
+                "cloud.region": "us-central1",
+                "cloud.availability_zone": "us-central1-a",
+                "deployment.environment": f"production-{NAMESPACE}",
+                "host.name": f"{NAMESPACE}-proxy-host",
+                "host.architecture": "amd64",
+                "os.type": "linux",
+                "data_stream.type": "logs",
+                "data_stream.dataset": "nginx.access",
+                "data_stream.namespace": "default",
+            }
+        ),
         "schemaUrl": SCHEMA_URL,
     }
 
 
 def _build_error_resource() -> dict:
     return {
-        "attributes": _format_attributes({
-            "service.name": "nginx-proxy",
-            "service.namespace": NAMESPACE,
-            "service.version": "1.25.4",
-            "service.instance.id": "nginx-proxy-001",
-            "telemetry.sdk.language": "python",
-            "telemetry.sdk.name": "opentelemetry",
-            "telemetry.sdk.version": "1.24.0",
-            "cloud.provider": "gcp",
-            "cloud.platform": "gcp_compute_engine",
-            "cloud.region": "us-central1",
-            "cloud.availability_zone": "us-central1-a",
-            "deployment.environment": f"production-{NAMESPACE}",
-            "host.name": f"{NAMESPACE}-proxy-host",
-            "host.architecture": "amd64",
-            "os.type": "linux",
-            "data_stream.type": "logs",
-            "data_stream.dataset": "nginx.error",
-            "data_stream.namespace": "default",
-        }),
+        "attributes": _format_attributes(
+            {
+                "service.name": "nginx-proxy",
+                "service.namespace": NAMESPACE,
+                "service.version": "1.25.4",
+                "service.instance.id": "nginx-proxy-001",
+                "telemetry.sdk.language": "python",
+                "telemetry.sdk.name": "opentelemetry",
+                "telemetry.sdk.version": "1.24.0",
+                "cloud.provider": "gcp",
+                "cloud.platform": "gcp_compute_engine",
+                "cloud.region": "us-central1",
+                "cloud.availability_zone": "us-central1-a",
+                "deployment.environment": f"production-{NAMESPACE}",
+                "host.name": f"{NAMESPACE}-proxy-host",
+                "host.architecture": "amd64",
+                "os.type": "linux",
+                "data_stream.type": "logs",
+                "data_stream.dataset": "nginx.error",
+                "data_stream.namespace": "default",
+            }
+        ),
         "schemaUrl": SCHEMA_URL,
     }
 
 
 def _build_trace_resource() -> dict:
     return {
-        "attributes": _format_attributes({
-            "service.name": "nginx-proxy",
-            "service.namespace": NAMESPACE,
-            "service.version": "1.25.4",
-            "service.instance.id": "nginx-proxy-001",
-            "telemetry.sdk.language": "python",
-            "telemetry.sdk.name": "opentelemetry",
-            "telemetry.sdk.version": "1.24.0",
-            "cloud.provider": "gcp",
-            "cloud.platform": "gcp_compute_engine",
-            "cloud.region": "us-central1",
-            "cloud.availability_zone": "us-central1-a",
-            "deployment.environment": f"production-{NAMESPACE}",
-            "host.name": f"{NAMESPACE}-proxy-host",
-            "host.architecture": "amd64",
-            "os.type": "linux",
-            "data_stream.type": "traces",
-            "data_stream.dataset": "generic",
-            "data_stream.namespace": "default",
-        }),
+        "attributes": _format_attributes(
+            {
+                "service.name": "nginx-proxy",
+                "service.namespace": NAMESPACE,
+                "service.version": "1.25.4",
+                "service.instance.id": "nginx-proxy-001",
+                "telemetry.sdk.language": "python",
+                "telemetry.sdk.name": "opentelemetry",
+                "telemetry.sdk.version": "1.24.0",
+                "cloud.provider": "gcp",
+                "cloud.platform": "gcp_compute_engine",
+                "cloud.region": "us-central1",
+                "cloud.availability_zone": "us-central1-a",
+                "deployment.environment": f"production-{NAMESPACE}",
+                "host.name": f"{NAMESPACE}-proxy-host",
+                "host.architecture": "amd64",
+                "os.type": "linux",
+                "data_stream.type": "traces",
+                "data_stream.dataset": "generic",
+                "data_stream.namespace": "default",
+            }
+        ),
         "schemaUrl": SCHEMA_URL,
     }
 
 
 # ── Log record generators ────────────────────────────────────────────────────
-def _generate_access_log(client: OTLPClient, rng: random.Random,
-                         endpoints: list | None = None,
-                         server_names: list | None = None,
-                         namespace: str | None = None) -> tuple[dict, dict | None]:
+def _generate_access_log(
+    client: OTLPClient,
+    rng: random.Random,
+    endpoints: list | None = None,
+    server_names: list | None = None,
+    namespace: str | None = None,
+) -> tuple[dict, dict | None]:
     """Generate an access log record and optionally an HTTP trace span.
 
     Returns (log_record, span_or_None).
@@ -244,8 +295,11 @@ def _generate_access_log(client: OTLPClient, rng: random.Random,
     }
 
     log_record = client.build_log_record(
-        severity=severity, body=body, attributes=attrs,
-        trace_id=trace_id, span_id=span_id,
+        severity=severity,
+        body=body,
+        attributes=attrs,
+        trace_id=trace_id,
+        span_id=span_id,
     )
 
     # Build a correlated HTTP span
@@ -273,9 +327,12 @@ def _generate_access_log(client: OTLPClient, rng: random.Random,
     return log_record, span
 
 
-def _generate_error_log(client: OTLPClient, rng: random.Random,
-                        endpoints: list | None = None,
-                        server_names: list | None = None) -> dict:
+def _generate_error_log(
+    client: OTLPClient,
+    rng: random.Random,
+    endpoints: list | None = None,
+    server_names: list | None = None,
+) -> dict:
     _endpoints = endpoints or ENDPOINTS
     _server_names = server_names or SERVER_NAMES
 
@@ -285,7 +342,7 @@ def _generate_error_log(client: OTLPClient, rng: random.Random,
     client_ip = rng.choice(CLIENT_IPS)
     path = rng.choice(_endpoints)
 
-    body = f"[error] {error_msg}, client: {client_ip}, server: {server}, request: \"GET {path} HTTP/1.1\", upstream: \"http://{upstream}{path}\""
+    body = f'[error] {error_msg}, client: {client_ip}, server: {server}, request: "GET {path} HTTP/1.1", upstream: "http://{upstream}{path}"'
 
     attrs = {
         "error.message": error_msg,
@@ -302,7 +359,9 @@ def _generate_error_log(client: OTLPClient, rng: random.Random,
 
 
 # ── Run loop (used by ServiceManager and standalone) ──────────────────────────
-def run(client: OTLPClient, stop_event: threading.Event, scenario_data: dict | None = None) -> None:
+def run(
+    client: OTLPClient, stop_event: threading.Event, scenario_data: dict | None = None
+) -> None:
     """Run nginx log generator loop until stop_event is set."""
     rng = random.Random()
 
@@ -339,32 +398,40 @@ def run(client: OTLPClient, stop_event: threading.Event, scenario_data: dict | N
 
     def _build_resource_dynamic(dataset: str, data_stream_type: str = "logs") -> dict:
         return {
-            "attributes": _format_attributes({
-                "service.name": "nginx-proxy",
-                "service.namespace": ns,
-                "service.version": "1.25.4",
-                "service.instance.id": "nginx-proxy-001",
-                "telemetry.sdk.language": "python",
-                "telemetry.sdk.name": "opentelemetry",
-                "telemetry.sdk.version": "1.24.0",
-                "cloud.provider": "gcp",
-                "cloud.platform": "gcp_compute_engine",
-                "cloud.region": "us-central1",
-                "cloud.availability_zone": "us-central1-a",
-                "deployment.environment": f"production-{ns}",
-                "host.name": f"{ns}-proxy-host",
-                "host.architecture": "amd64",
-                "os.type": "linux",
-                "data_stream.type": data_stream_type,
-                "data_stream.dataset": dataset,
-                "data_stream.namespace": "default",
-            }),
+            "attributes": _format_attributes(
+                {
+                    "service.name": "nginx-proxy",
+                    "service.namespace": ns,
+                    "service.version": "1.25.4",
+                    "service.instance.id": "nginx-proxy-001",
+                    "telemetry.sdk.language": "python",
+                    "telemetry.sdk.name": "opentelemetry",
+                    "telemetry.sdk.version": "1.24.0",
+                    "cloud.provider": "gcp",
+                    "cloud.platform": "gcp_compute_engine",
+                    "cloud.region": "us-central1",
+                    "cloud.availability_zone": "us-central1-a",
+                    "deployment.environment": f"production-{ns}",
+                    "host.name": f"{ns}-proxy-host",
+                    "host.architecture": "amd64",
+                    "os.type": "linux",
+                    "data_stream.type": data_stream_type,
+                    "data_stream.dataset": dataset,
+                    "data_stream.namespace": "default",
+                }
+            ),
             "schemaUrl": SCHEMA_URL,
         }
 
     access_resource = _build_resource_dynamic("nginx.access")
     error_resource = _build_resource_dynamic("nginx.error")
     trace_resource = _build_resource_dynamic("generic", "traces")
+
+    # Only emit traces if nginx-proxy is in the scenario's services (avoids
+    # disconnected Service Map nodes when the scenario doesn't include it).
+    _emit_traces = True
+    if scenario_data and "services" in scenario_data:
+        _emit_traces = "nginx-proxy" in scenario_data["services"]
 
     total_sent = 0
     total_spans = 0
@@ -385,14 +452,16 @@ def run(client: OTLPClient, stop_event: threading.Event, scenario_data: dict | N
         access_records = []
         spans = []
         for _ in range(batch_size):
-            log_record, span = _generate_access_log(client, rng, endpoints, server_names, ns)
+            log_record, span = _generate_access_log(
+                client, rng, endpoints, server_names, ns
+            )
             access_records.append(log_record)
             if span:
                 spans.append(span)
         client.send_logs(access_resource, access_records)
 
-        # Send correlated trace spans
-        if spans:
+        # Send correlated trace spans (only if nginx-proxy is in scenario topology)
+        if spans and _emit_traces:
             client.send_traces(trace_resource, spans)
             total_spans += len(spans)
 
@@ -401,24 +470,34 @@ def run(client: OTLPClient, stop_event: threading.Event, scenario_data: dict | N
         if error_count > 0:
             error_records = []
             for _ in range(error_count):
-                error_records.append(_generate_error_log(client, rng, endpoints, server_names))
+                error_records.append(
+                    _generate_error_log(client, rng, endpoints, server_names)
+                )
             client.send_logs(error_resource, error_records)
 
         total_sent += batch_size + error_count
         logger.info(
             "Sent %d access + %d error logs, %d spans (total=%d logs, %d spans)",
-            batch_size, error_count, len(spans), total_sent, total_spans,
+            batch_size,
+            error_count,
+            len(spans),
+            total_sent,
+            total_spans,
         )
 
         sleep_time = rng.uniform(BATCH_INTERVAL_MIN, BATCH_INTERVAL_MAX)
         stop_event.wait(sleep_time)
 
-    logger.info("Nginx log generator stopped. Total: %d logs, %d spans", total_sent, total_spans)
+    logger.info(
+        "Nginx log generator stopped. Total: %d logs, %d spans", total_sent, total_spans
+    )
 
 
 # ── Standalone entry point ────────────────────────────────────────────────────
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
+    )
 
     client = OTLPClient()
     stop_event = threading.Event()

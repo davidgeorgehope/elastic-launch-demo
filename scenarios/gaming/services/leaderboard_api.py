@@ -15,7 +15,12 @@ class LeaderboardApiService(BaseService):
         super().__init__(chaos_controller, otlp_client)
         self._rank_updates = 0
         self._last_board_snapshot = time.time()
-        self._boards = ["ranked-global", "seasonal-solo", "guild-wars", "tournament-finals"]
+        self._boards = [
+            "ranked-global",
+            "seasonal-solo",
+            "guild-wars",
+            "tournament-finals",
+        ]
 
     def generate_telemetry(self) -> None:
         # ── Fault injection ────────────────────────────────────
@@ -36,9 +41,15 @@ class LeaderboardApiService(BaseService):
             self._last_board_snapshot = time.time()
 
         # Metrics
-        query_latency = round(random.uniform(2.0, 15.0), 1) if not active_channels else round(random.uniform(50.0, 500.0), 1)
+        query_latency = (
+            round(random.uniform(2.0, 15.0), 1)
+            if not active_channels
+            else round(random.uniform(50.0, 500.0), 1)
+        )
         self.emit_metric("leaderboard.query_latency_ms", query_latency, "ms")
-        self.emit_metric("leaderboard.rank_updates", float(self._rank_updates), "updates")
+        self.emit_metric(
+            "leaderboard.rank_updates", float(self._rank_updates), "updates"
+        )
         total_entries = random.randint(500000, 2000000)
         self.emit_metric("leaderboard.total_entries", float(total_entries), "entries")
 

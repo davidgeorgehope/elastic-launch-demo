@@ -12,8 +12,11 @@ class CloudNatGatewayService(BaseService):
 
     GATEWAYS = ["gcpnet-nat-central1", "gcpnet-nat-east1", "gcpnet-nat-europe1"]
     NAT_IPS = [
-        "34.72.100.10", "34.72.100.11", "34.72.100.12",
-        "34.86.50.20", "34.86.50.21",
+        "34.72.100.10",
+        "34.72.100.11",
+        "34.72.100.12",
+        "34.86.50.20",
+        "34.86.50.21",
     ]
 
     def generate_telemetry(self) -> None:
@@ -29,7 +32,11 @@ class CloudNatGatewayService(BaseService):
         # -- Port allocation --
         gw = random.choice(self.GATEWAYS)
         total_ports = 64512
-        used_ports = random.randint(20000, 45000) if not active_channels else random.randint(60000, 64000)
+        used_ports = (
+            random.randint(20000, 45000)
+            if not active_channels
+            else random.randint(60000, 64000)
+        )
         util_pct = round(used_ports / total_ports * 100, 1)
 
         self.emit_metric("nat.ports_used", float(used_ports), "ports")
@@ -50,7 +57,9 @@ class CloudNatGatewayService(BaseService):
 
         # -- Connection stats --
         new_conns = random.randint(1000, 10000)
-        dropped_conns = random.randint(0, 5) if not active_channels else random.randint(50, 500)
+        dropped_conns = (
+            random.randint(0, 5) if not active_channels else random.randint(50, 500)
+        )
         self.emit_metric("nat.new_connections", float(new_conns), "conn/s")
         self.emit_metric("nat.dropped_connections", float(dropped_conns), "conn/s")
 

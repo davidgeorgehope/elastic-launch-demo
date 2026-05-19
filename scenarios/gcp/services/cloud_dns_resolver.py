@@ -26,7 +26,11 @@ class CloudDnsResolverService(BaseService):
         # -- Query volume --
         zone = random.choice(self.ZONES)
         queries_per_sec = random.randint(5000, 30000)
-        latency_avg_ms = round(random.uniform(1.0, 5.0), 2) if not active_channels else round(random.uniform(50.0, 500.0), 2)
+        latency_avg_ms = (
+            round(random.uniform(1.0, 5.0), 2)
+            if not active_channels
+            else round(random.uniform(50.0, 500.0), 2)
+        )
 
         self.emit_metric("dns.queries_per_sec", float(queries_per_sec), "qps")
         self.emit_metric("dns.latency_avg_ms", latency_avg_ms, "ms")
@@ -44,9 +48,17 @@ class CloudDnsResolverService(BaseService):
         )
 
         # -- DNSSEC status --
-        dnssec_state = "ON" if not active_channels else random.choice(["VALIDATION_ERROR", "KEY_ROTATION_PENDING"])
-        validation_errors = random.randint(0, 2) if not active_channels else random.randint(50, 500)
-        self.emit_metric("dns.dnssec_validation_errors", float(validation_errors), "errors")
+        dnssec_state = (
+            "ON"
+            if not active_channels
+            else random.choice(["VALIDATION_ERROR", "KEY_ROTATION_PENDING"])
+        )
+        validation_errors = (
+            random.randint(0, 2) if not active_channels else random.randint(50, 500)
+        )
+        self.emit_metric(
+            "dns.dnssec_validation_errors", float(validation_errors), "errors"
+        )
 
         self.emit_log(
             "INFO",
@@ -61,8 +73,12 @@ class CloudDnsResolverService(BaseService):
 
         # -- Resolution types --
         record_type = random.choice(self.RECORD_TYPES)
-        nxdomain_count = random.randint(0, 10) if not active_channels else random.randint(100, 1000)
-        servfail_count = random.randint(0, 2) if not active_channels else random.randint(50, 300)
+        nxdomain_count = (
+            random.randint(0, 10) if not active_channels else random.randint(100, 1000)
+        )
+        servfail_count = (
+            random.randint(0, 2) if not active_channels else random.randint(50, 300)
+        )
         self.emit_metric("dns.nxdomain_count", float(nxdomain_count), "responses")
         self.emit_metric("dns.servfail_count", float(servfail_count), "responses")
 

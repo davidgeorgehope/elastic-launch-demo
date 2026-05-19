@@ -6,23 +6,33 @@
     <title>Elastic Observability Demo Platform</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Mono&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
-            --bg: #1D1E24;
-            --bg-card: #25262E;
-            --bg-input: #2C2D35;
-            --border: #393A42;
-            --teal: #00BFB3;
-            --teal-dim: #009B90;
-            --text: #E6EDF3;
-            --text-dim: #8B949E;
+            --elastic-blue: #0B64DD;
+            --teal: #48EFCF;
+            --teal-dim: #2EC9B0;
+            --yellow: #FEC514;
+            --light-poppy: #FF957D;
+            --pink: #F04E98;
+            --dev-blue: #101C3F;
+            --dark-ink: #1C1E23;
+            --ink: #343741;
+            --light-grey: #F5F7FA;
+            --bg: #FFFFFF;
+            --bg-card: #FFFFFF;
+            --bg-input: #FFFFFF;
+            --border: rgba(16, 28, 63, 0.18);
+            --border-card: #101C3F;
+            --text: #1C1E23;
+            --text-dim: #343741;
+            --text-muted: #69707D;
             --white: #FFFFFF;
             --green: #3FB950;
-            --amber: #D29922;
-            --red: #F85149;
+            --amber: #FEC514;
+            --red: #FF957D;
         }
 
         body {
@@ -33,10 +43,12 @@
             overflow-x: hidden;
         }
 
-        /* Header */
+        /* Header — Elastic Blue hero */
         .header {
-            padding: 40px 40px 0;
+            background: var(--elastic-blue);
+            padding: 48px 40px 40px;
             text-align: center;
+            color: var(--white);
         }
         .header-logo {
             display: inline-flex;
@@ -53,7 +65,7 @@
             font-weight: 600;
             letter-spacing: 2px;
             text-transform: uppercase;
-            color: var(--teal);
+            color: rgba(255, 255, 255, 0.85);
         }
         .header h1 {
             font-size: 32px;
@@ -63,9 +75,16 @@
         }
         .header p {
             font-size: 16px;
-            color: var(--text-dim);
+            color: rgba(255, 255, 255, 0.80);
             max-width: 600px;
             margin: 0 auto;
+        }
+        .header-accent {
+            width: 60px;
+            height: 3px;
+            background: var(--teal);
+            border-radius: 2px;
+            margin: 20px auto 0;
         }
 
         /* Scenario Cards Grid */
@@ -79,43 +98,38 @@
             font-weight: 600;
             letter-spacing: 1.5px;
             text-transform: uppercase;
-            color: var(--text-dim);
-            margin-bottom: 16px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 3px solid var(--teal);
+            display: inline-block;
         }
         .scenario-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
             gap: 16px;
+            margin-top: 16px;
         }
         .scenario-card {
             background: var(--bg-card);
-            border: 2px solid var(--border);
+            border: 1.5px solid var(--border-card);
             border-radius: 12px;
             padding: 20px;
-            cursor: pointer;
             transition: all 0.2s;
             position: relative;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 1px 4px rgba(16, 28, 63, 0.07);
         }
         .scenario-card:hover {
-            border-color: var(--teal-dim);
-            transform: translateY(-2px);
+            box-shadow: 0 4px 14px rgba(16, 28, 63, 0.14);
         }
-        .scenario-card.selected {
-            border-color: var(--teal);
-            background: #1a2d2c;
+        .scenario-card.is-deployed {
+            border-color: var(--elastic-blue);
+            border-width: 2px;
         }
-        .scenario-card.selected::after {
-            content: '';
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            width: 20px;
-            height: 20px;
-            background: var(--teal);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .scenario-card .card-body {
+            flex: 1;
         }
         .scenario-icon {
             font-size: 32px;
@@ -124,7 +138,7 @@
         .scenario-card h3 {
             font-size: 15px;
             font-weight: 600;
-            color: var(--white);
+            color: var(--text);
             margin-bottom: 6px;
         }
         .scenario-card p {
@@ -136,11 +150,58 @@
             display: inline-block;
             margin-top: 8px;
             font-size: 11px;
-            font-family: 'SF Mono', 'Consolas', monospace;
-            color: var(--teal);
-            background: rgba(0, 191, 179, 0.1);
+            font-family: 'Space Mono', 'Consolas', monospace;
+            color: var(--elastic-blue);
+            background: rgba(11, 100, 221, 0.08);
             padding: 2px 8px;
             border-radius: 4px;
+        }
+        .scenario-actions {
+            margin-top: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .card-btn {
+            display: block;
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: inherit;
+            text-align: center;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-sizing: border-box;
+        }
+        .card-btn-launch { background: var(--elastic-blue); color: #fff; }
+        .card-btn-launch:hover { background: #0f6fe8; }
+        .card-btn-deploying {
+            background: rgba(11, 100, 221, 0.12);
+            color: rgba(28, 30, 35, 0.45);
+            cursor: not-allowed;
+        }
+        .card-btn-exec { background: #238636; color: #fff; border-color: #238636; }
+        .card-btn-exec:hover { background: #2ea043; border-color: #2ea043; }
+        .card-btn-ops { background: var(--elastic-blue); color: #fff; border-color: var(--elastic-blue); opacity: 0.82; }
+        .card-btn-ops:hover { opacity: 1; }
+        .card-btn-chaos { background: var(--yellow); color: var(--dark-ink); border-color: var(--yellow); }
+        .card-btn-chaos:hover { background: #e6b310; border-color: #e6b310; }
+        .card-btn-teardown { background: #BD271E; color: #fff; }
+        .card-btn-teardown:hover { background: #a8221a; }
+        .card-btn-teardown[disabled] {
+            background: rgba(189, 39, 30, 0.18);
+            color: rgba(28, 30, 35, 0.35);
+            cursor: not-allowed;
+        }
+        .card-error {
+            margin-top: 10px;
+            color: var(--light-poppy);
+            font-size: 12px;
+            line-height: 1.4;
         }
 
         /* Connection Panel */
@@ -150,7 +211,7 @@
             margin: 0 auto;
         }
         .connection-panel {
-            background: var(--bg-card);
+            background: var(--light-grey);
             border: 1px solid var(--border);
             border-radius: 12px;
             padding: 32px;
@@ -160,7 +221,7 @@
         .connection-panel h2 {
             font-size: 14px;
             font-weight: 600;
-            color: var(--white);
+            color: var(--text);
             margin-bottom: 20px;
             letter-spacing: 0.5px;
         }
@@ -179,26 +240,27 @@
         .form-group label {
             font-size: 12px;
             font-weight: 500;
-            color: var(--text-dim);
+            color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
         .form-group input {
             background: var(--bg-input);
-            border: 1px solid var(--border);
+            border: 1px solid rgba(16, 28, 63, 0.25);
             border-radius: 8px;
             padding: 10px 14px;
             color: var(--text);
             font-size: 14px;
             font-family: inherit;
             outline: none;
-            transition: border-color 0.2s;
+            transition: border-color 0.2s, box-shadow 0.2s;
         }
         .form-group input:focus {
-            border-color: var(--teal);
+            border-color: var(--elastic-blue);
+            box-shadow: 0 0 0 2px rgba(11, 100, 221, 0.12);
         }
         .form-group input::placeholder {
-            color: #555;
+            color: #aab0bb;
         }
         .btn-row {
             display: flex;
@@ -216,11 +278,11 @@
             font-family: inherit;
         }
         .btn-primary {
-            background: var(--teal);
-            color: #000;
+            background: var(--elastic-blue);
+            color: var(--white);
         }
         .btn-primary:hover {
-            background: #00d4c7;
+            background: #0f6fe8;
             transform: translateY(-1px);
         }
         .btn-primary:disabled {
@@ -229,12 +291,13 @@
             transform: none;
         }
         .btn-secondary {
-            background: var(--bg-input);
+            background: var(--white);
             color: var(--text);
-            border: 1px solid var(--border);
+            border: 1.5px solid var(--border-card);
         }
         .btn-secondary:hover {
-            border-color: var(--teal-dim);
+            border-color: var(--elastic-blue);
+            color: var(--elastic-blue);
         }
         .btn-icon {
             margin-right: 6px;
@@ -247,100 +310,20 @@
         .advanced-settings summary {
             font-size: 12px;
             font-weight: 500;
-            color: var(--text-dim);
+            color: var(--text-muted);
             cursor: pointer;
             padding: 8px 0;
             user-select: none;
         }
         .advanced-settings summary:hover {
-            color: var(--teal);
+            color: var(--elastic-blue);
         }
         .advanced-settings .form-group input {
             font-size: 13px;
-            color: var(--text-dim);
+            color: var(--text-muted);
         }
         .advanced-settings .form-group input:not(:placeholder-shown) {
             color: var(--text);
-        }
-
-        /* Active Scenario Banner */
-        .active-banner {
-            display: none;
-            padding: 0 40px;
-            max-width: 1200px;
-            margin: 0 auto 20px;
-        }
-        .active-banner.visible { display: block; }
-        .active-banner-inner {
-            background: linear-gradient(135deg, rgba(0,191,179,0.15) 0%, rgba(0,191,179,0.05) 100%);
-            border: 1px solid rgba(0,191,179,0.3);
-            border-radius: 12px;
-            padding: 20px 24px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .active-info {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-        .active-dot {
-            width: 10px;
-            height: 10px;
-            background: var(--green);
-            border-radius: 50%;
-            animation: pulse 2s ease infinite;
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.4; }
-        }
-        .active-text h3 {
-            font-size: 15px;
-            font-weight: 600;
-            color: var(--white);
-        }
-        .active-text p {
-            font-size: 13px;
-            color: var(--text-dim);
-        }
-        .active-links {
-            display: flex;
-            gap: 10px;
-        }
-        .active-links a {
-            padding: 8px 16px;
-            background: rgba(0,191,179,0.2);
-            border: 1px solid rgba(0,191,179,0.3);
-            border-radius: 6px;
-            color: var(--teal);
-            text-decoration: none;
-            font-size: 13px;
-            font-weight: 500;
-            transition: all 0.2s;
-        }
-        .active-links a:hover {
-            background: rgba(0,191,179,0.3);
-        }
-        .btn-danger {
-            background: rgba(248,81,73,0.15);
-            border: 1px solid rgba(248,81,73,0.4);
-            color: var(--red);
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-size: 13px;
-            font-weight: 500;
-            cursor: pointer;
-            font-family: inherit;
-            transition: all 0.2s;
-        }
-        .btn-danger:hover {
-            background: rgba(248,81,73,0.3);
-        }
-        .btn-danger:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
         }
 
         /* Status message */
@@ -351,19 +334,29 @@
         }
         .status-msg.visible { display: inline; }
         .status-msg.ok { color: var(--green); }
-        .status-msg.err { color: var(--red); }
-        .status-msg.info { color: var(--amber); }
+        .status-msg.err { color: var(--light-poppy); }
+        .status-msg.info { color: var(--elastic-blue); }
 
-        /* Progress Panel */
-        .progress-panel {
-            padding: 0 40px 40px;
+        /* Connection check indicators */
+        .conn-check {
+            font-size: 11px;
+            font-weight: 700;
+            margin-left: 6px;
+        }
+        .conn-check.conn-ok  { color: var(--green); }
+        .conn-check.conn-fail { color: var(--light-poppy); }
+
+        /* Progress Panels */
+        #progress-panels-container {
+            padding: 0 40px;
             max-width: 1200px;
             margin: 0 auto;
-            display: none;
         }
-        .progress-panel.visible { display: block; }
+        .progress-panel {
+            margin-bottom: 16px;
+        }
         .progress-inner {
-            background: var(--bg-card);
+            background: var(--light-grey);
             border: 1px solid var(--border);
             border-radius: 12px;
             padding: 24px 32px;
@@ -371,7 +364,7 @@
         .progress-inner h2 {
             font-size: 14px;
             font-weight: 600;
-            color: var(--white);
+            color: var(--text);
             margin-bottom: 16px;
         }
         .progress-step {
@@ -386,14 +379,14 @@
             text-align: center;
             flex-shrink: 0;
         }
-        .step-icon.pending { color: var(--text-dim); }
-        .step-icon.running { color: var(--amber); }
+        .step-icon.pending { color: var(--text-muted); }
+        .step-icon.running { color: var(--elastic-blue); }
         .step-icon.ok { color: var(--green); }
-        .step-icon.failed { color: var(--red); }
-        .step-icon.skipped { color: var(--text-dim); }
+        .step-icon.failed { color: var(--light-poppy); }
+        .step-icon.skipped { color: var(--text-muted); }
         .step-name { color: var(--text); flex: 1; }
         .step-detail { color: var(--text-dim); font-size: 12px; }
-        .step-count { color: var(--teal); font-size: 12px; font-family: monospace; }
+        .step-count { color: var(--elastic-blue); font-size: 12px; font-family: 'Space Mono', monospace; }
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
@@ -401,7 +394,7 @@
             display: inline-block;
             width: 14px;
             height: 14px;
-            border: 2px solid var(--amber);
+            border: 2px solid var(--elastic-blue);
             border-top-color: transparent;
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
@@ -411,11 +404,13 @@
         .footer {
             text-align: center;
             padding: 40px;
-            color: var(--text-dim);
+            color: var(--text-muted);
             font-size: 12px;
+            border-top: 1px solid var(--border);
+            margin-top: 40px;
         }
         .footer a {
-            color: var(--teal);
+            color: var(--elastic-blue);
             text-decoration: none;
         }
     </style>
@@ -425,17 +420,51 @@
     <div class="header">
         <div class="header-logo">
             <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="16" cy="16" r="14" stroke="#00BFB3" stroke-width="2"/>
-                <path d="M10 16h12M16 10v12" stroke="#00BFB3" stroke-width="2" stroke-linecap="round"/>
+                <circle cx="16" cy="16" r="13" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/>
+                <circle cx="16" cy="16" r="7" fill="rgba(255,255,255,0.2)" stroke="#48EFCF" stroke-width="1.5"/>
+                <circle cx="16" cy="16" r="2.5" fill="#48EFCF"/>
             </svg>
             <span class="header-brand">Elastic Observability</span>
         </div>
         <h1>Demo Platform</h1>
         <p>Select a scenario, connect your Elastic environment, and launch a fully instrumented observability demo.</p>
+        <div class="header-accent"></div>
     </div>
 
-    <!-- Active Deployments Banner (populated by JS) -->
-    <div id="deployments-banner" style="padding: 0 40px; max-width: 1200px; margin: 0 auto 20px; display: none;">
+    <!-- Connection Panel -->
+    <div class="connection">
+        <div class="connection-panel" id="connection-panel">
+            <h2>Connection Settings</h2>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Kibana URL <span class="conn-check" id="check-kibana"></span></label>
+                    <input type="url" id="kibana-url" placeholder="https://my-cluster.kb.us-east-1.aws.elastic.cloud" oninput="deriveUrls(); clearConnChecks()">
+                </div>
+                <div class="form-group">
+                    <label>API Key</label>
+                    <input type="password" id="api-key" placeholder="Base64-encoded API key" oninput="clearConnChecks()">
+                </div>
+            </div>
+            <details class="advanced-settings">
+                <summary>Advanced (auto-derived from Kibana URL)</summary>
+                <div class="form-grid" style="margin-top: 12px;">
+                    <div class="form-group">
+                        <label>Elasticsearch URL <span class="conn-check" id="check-es"></span></label>
+                        <input type="url" id="es-url" placeholder="Auto-derived from Kibana URL" oninput="clearConnChecks()">
+                    </div>
+                    <div class="form-group">
+                        <label>OTLP Endpoint <span class="conn-check" id="check-otlp"></span></label>
+                        <input type="url" id="otlp-url" placeholder="Auto-derived from Kibana URL" oninput="clearConnChecks()">
+                    </div>
+                </div>
+            </details>
+            <div class="btn-row">
+                <button class="btn btn-secondary" onclick="testConnection()">
+                    <span class="btn-icon">&#9889;</span>Test Connection
+                </button>
+                <span class="status-msg" id="status-msg"></span>
+            </div>
+        </div>
     </div>
 
     <!-- Scenario Cards -->
@@ -446,71 +475,51 @@
         </div>
     </div>
 
-    <!-- Connection Panel -->
-    <div class="connection">
-        <div class="connection-panel" id="connection-panel">
-            <h2>Connection Settings</h2>
-            <div class="form-grid">
-                <div class="form-group">
-                    <label>Kibana URL</label>
-                    <input type="url" id="kibana-url" placeholder="https://my-cluster.kb.us-east-1.aws.elastic.cloud" oninput="deriveUrls()">
-                </div>
-                <div class="form-group">
-                    <label>API Key</label>
-                    <input type="password" id="api-key" placeholder="Base64-encoded API key">
-                </div>
-            </div>
-            <details class="advanced-settings">
-                <summary>Advanced (auto-derived from Kibana URL)</summary>
-                <div class="form-grid" style="margin-top: 12px;">
-                    <div class="form-group">
-                        <label>Elasticsearch URL</label>
-                        <input type="url" id="es-url" placeholder="Auto-derived from Kibana URL">
-                    </div>
-                    <div class="form-group">
-                        <label>OTLP Endpoint</label>
-                        <input type="url" id="otlp-url" placeholder="Auto-derived from Kibana URL">
-                    </div>
-                </div>
-            </details>
-            <div class="btn-row">
-                <button class="btn btn-secondary" onclick="testConnection()">
-                    <span class="btn-icon">&#9889;</span>Test Connection
-                </button>
-                <button class="btn btn-primary" onclick="launchScenario()" id="launch-btn" disabled>
-                    <span class="btn-icon">&#9654;</span>Launch
-                </button>
-                <span class="status-msg" id="status-msg"></span>
-            </div>
-        </div>
-    </div>
-
-    <!-- Progress Panel -->
-    <div class="progress-panel" id="progress-panel">
-        <div class="progress-inner">
-            <h2>Deployment Progress</h2>
-            <div id="progress-steps"></div>
-        </div>
-    </div>
+    <!-- Progress Panels Container -->
+    <div id="progress-panels-container"></div>
 
     <div class="footer">
         Powered by <a href="https://elastic.co" target="_blank">Elastic</a> Observability
     </div>
 
 <script>
-    const SCENARIO_ICONS = {
-        space: '\uD83D\uDE80',
-        fanatics: '\uD83C\uDFC8',
-        financial: '\uD83D\uDCB9',
-        healthcare: '\uD83C\uDFE5',
-        gaming: '\uD83C\uDFAE',
-    };
 
     let scenarios = [];
-    let selectedScenario = null;
     let activeDeployments = [];
+    let envCreds = false;
+    const tearingDownIds = new Set();
+    const tearingDownScenarioIds = new Set();
+    const deployingIds = new Set();
+    const queuedDeployIds = new Set();      // scenario_id while deploy is queued
+    const queuedTeardownIds = new Set();    // deployment_id while teardown is queued
+    const queuePositions = new Map();       // scenario_id or deployment_id → "2 of 3"
+    const deployOrder = new Map();          // scenario_id → first-seen sequence number
+    const teardownOrder = new Map();        // deployment_id → first-seen sequence number
+    let _orderSeq = 0;
+    function noteDeployOrder(id) { if (!deployOrder.has(id)) deployOrder.set(id, ++_orderSeq); }
+    function noteTeardownOrder(id) { if (!teardownOrder.has(id)) teardownOrder.set(id, ++_orderSeq); }
+    function parseQueuePos(id) {
+        const s = queuePositions.get(id);
+        if (!s) return Infinity;
+        const m = s.match(/^(\d+) of/);
+        return m ? parseInt(m[1], 10) : Infinity;
+    }
+    const cardErrors = new Map();
 
     async function init() {
+        // Check if credentials are pre-configured via .env
+        try {
+            const cfg = await (await fetch('/api/setup/env-creds')).json();
+            envCreds = cfg.has_env_creds || false;
+        } catch (e) {
+            envCreds = false;
+        }
+
+        // Show credentials panel up-front when not using env creds.
+        if (!envCreds) {
+            document.getElementById('connection-panel').classList.add('visible');
+        }
+
         // Load scenarios
         try {
             scenarios = await (await fetch('/api/scenarios')).json();
@@ -521,6 +530,32 @@
         // Load active deployments
         await refreshDeployments();
 
+        // Resume any deployments that were in progress before a page refresh
+        try {
+            const status = await (await fetch('/api/setup/active-deploys')).json();
+            for (const dep of (status.deployments || [])) {
+                deployingIds.add(dep.scenario_id);
+                noteDeployOrder(dep.scenario_id);
+                const panelId = 'progress-panel-deploy-' + dep.deployment_id;
+                if (!document.getElementById(panelId)) {
+                    createProgressPanel(panelId, 'Deploying ' + dep.scenario_name + '…');
+                    pollProgress(dep.deployment_id, dep.scenario_id);
+                }
+            }
+        } catch (e) {}
+
+        // Resume any teardowns that were running before a page refresh
+        try {
+            const tdStatus = await (await fetch('/api/setup/active-teardowns')).json();
+            for (const td of (tdStatus.teardowns || [])) {
+                tearingDownIds.add(td.deployment_id);
+                noteTeardownOrder(td.deployment_id);
+                if (td.scenario_id) tearingDownScenarioIds.add(td.scenario_id);
+                createProgressPanel('progress-panel-teardown-' + td.deployment_id, 'Removing ' + td.scenario_name + '…');
+                pollTeardownProgress(td.deployment_id, td.scenario_name, td.scenario_id);
+            }
+        } catch (e) {}
+
         renderScenarios();
     }
 
@@ -530,79 +565,105 @@
         } catch (e) {
             activeDeployments = [];
         }
-        renderDeploymentsBanner();
-        // Update running badges on scenario cards
-        document.querySelectorAll('.scenario-card').forEach(c => {
-            const badge = c.querySelector('.running-badge');
-            const isRunning = activeDeployments.some(d => d.scenario_id === c.dataset.id && d.running);
-            if (badge) badge.style.display = isRunning ? 'inline-block' : 'none';
-        });
+        renderScenarios();
     }
 
-    function renderDeploymentsBanner() {
-        const banner = document.getElementById('deployments-banner');
-        if (!activeDeployments || activeDeployments.length === 0) {
-            banner.style.display = 'none';
-            return;
-        }
-        banner.style.display = 'block';
-        banner.innerHTML = activeDeployments.map(d => `
-            <div style="background: linear-gradient(135deg, rgba(0,191,179,0.15) 0%, rgba(0,191,179,0.05) 100%);
-                        border: 1px solid rgba(0,191,179,0.3); border-radius: 12px; padding: 16px 20px;
-                        display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <span style="font-size: 20px;">${SCENARIO_ICONS[d.scenario_id] || '\uD83D\uDD27'}</span>
-                    <div>
-                        <div style="font-weight: 600; color: #e6edf3; font-size: 14px;">
-                            ${d.scenario_name}
-                            <span style="background: ${d.running ? 'var(--green)' : 'var(--amber)'}; color: #000;
-                                         font-size: 10px; padding: 2px 8px; border-radius: 10px; margin-left: 8px;
-                                         font-weight: 700;">${d.running ? 'RUNNING' : 'STOPPED'}</span>
-                        </div>
-                        <div style="font-size: 12px; color: var(--text-dim);">${d.namespace} &mdash; ${d.deployment_id}</div>
-                    </div>
-                </div>
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <a href="/home?deployment_id=${d.deployment_id}" style="color: var(--teal); font-size: 13px; text-decoration: none;">Landing</a>
-                    <a href="/dashboard?deployment_id=${d.deployment_id}" style="color: var(--teal); font-size: 13px; text-decoration: none;">Dashboard</a>
-                    <a href="/chaos?deployment_id=${d.deployment_id}" style="color: var(--teal); font-size: 13px; text-decoration: none;">Chaos</a>
-                    <button onclick="stopAndTeardown('${d.deployment_id}')" style="background: var(--red); color: #fff;
-                            border: none; border-radius: 6px; padding: 6px 14px; font-size: 12px; font-weight: 600;
-                            cursor: pointer; font-family: inherit;">Stop &amp; Teardown</button>
-                </div>
-            </div>
-        `).join('');
+    function sortScenariosByDeployment(list) {
+        const runningIds = new Set(activeDeployments.filter(d => d.running).map(d => d.scenario_id));
+        const deploymentIdByScenario = new Map(activeDeployments.map(d => [d.scenario_id, d.deployment_id]));
+        const rank = (s) => {
+            // Tearing-down scenarios are still in activeDeployments until teardown
+            // finishes, so check tearing-down BEFORE deployed.
+            if (tearingDownScenarioIds.has(s.id)) return 2;   // tearing down
+            if (runningIds.has(s.id)) return 0;               // deployed
+            if (deployingIds.has(s.id)) return 1;             // deploying (incl. queued)
+            return 3;                                         // not deployed
+        };
+        // Within "deploying" and "tearing down" groups: actively-running ops
+        // (no queue position) first in start order, then queued ops in queue
+        // position order.
+        const subRank = (s, r) => {
+            if (r === 1) {
+                const queued = queuedDeployIds.has(s.id);
+                return [queued ? 1 : 0, queued ? parseQueuePos(s.id) : (deployOrder.get(s.id) ?? Infinity)];
+            }
+            if (r === 2) {
+                const depId = deploymentIdByScenario.get(s.id);
+                if (!depId) return [0, Infinity];
+                const queued = queuedTeardownIds.has(depId);
+                return [queued ? 1 : 0, queued ? parseQueuePos(depId) : (teardownOrder.get(depId) ?? Infinity)];
+            }
+            return [0, 0];
+        };
+        return [...list].sort((a, b) => {
+            const ra = rank(a), rb = rank(b);
+            if (ra !== rb) return ra - rb;
+            const [sa1, sa2] = subRank(a, ra);
+            const [sb1, sb2] = subRank(b, rb);
+            if (sa1 !== sb1) return sa1 - sb1;
+            if (sa2 !== sb2) return sa2 - sb2;
+            return list.indexOf(a) - list.indexOf(b);
+        });
     }
 
     function renderScenarios() {
         const grid = document.getElementById('scenario-grid');
         grid.innerHTML = '';
-        scenarios.forEach(s => {
-            const isRunning = activeDeployments.some(d => d.scenario_id === s.id && d.running);
+        sortScenariosByDeployment(scenarios).forEach(s => {
+            const dep = activeDeployments.find(d => d.scenario_id === s.id && d.running);
+            const isDeploying = deployingIds.has(s.id);
+            const isTearingDown = tearingDownScenarioIds.has(s.id) || (dep && tearingDownIds.has(dep.deployment_id));
             const card = document.createElement('div');
-            card.className = 'scenario-card';
+            card.className = 'scenario-card' + (dep || isTearingDown ? ' is-deployed' : '');
             card.dataset.id = s.id;
+
+            const runningPill = (dep || isTearingDown)
+                ? `<span style="position: absolute; top: 10px; right: 10px; background: #48EFCF; color: #101C3F;
+                       font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 10px; letter-spacing: 0.5px;">RUNNING</span>`
+                : '';
+
+            const deployPos = queuePositions.get(s.id);
+            const deployLabel = queuedDeployIds.has(s.id)
+                ? `Queued${deployPos ? ' (' + deployPos + ')' : ''}…`
+                : 'Deploying…';
+            const tdDepId = dep ? dep.deployment_id : null;
+            const tdPos = tdDepId ? queuePositions.get(tdDepId) : null;
+            const teardownLabel = (tdDepId && queuedTeardownIds.has(tdDepId))
+                ? `Queued${tdPos ? ' (' + tdPos + ')' : ''}…`
+                : 'Removing…';
+
+            let actions = '';
+            if (isDeploying) {
+                actions = `<button class="card-btn card-btn-deploying" disabled>${deployLabel}</button>`;
+            } else if (isTearingDown) {
+                actions = `<button class="card-btn card-btn-teardown" disabled>${teardownLabel}</button>`;
+            } else if (dep) {
+                actions = `
+                    <a class="card-btn card-btn-exec" href="${dep.kibana_display_url}/app/dashboards#/view/${dep.namespace}-business-exec-dashboard" target="_blank" rel="noopener">Business Dashboard</a>
+                    <a class="card-btn card-btn-ops" href="${dep.kibana_display_url}/app/dashboards#/view/${dep.namespace}-exec-dashboard" target="_blank" rel="noopener">Operations Dashboard</a>
+                    <a class="card-btn card-btn-chaos" href="/chaos?deployment_id=${dep.deployment_id}">Chaos</a>
+                    <button class="card-btn card-btn-teardown" onclick="stopAndTeardown('${dep.deployment_id}')">Stop &amp; Teardown</button>
+                `;
+            } else {
+                actions = `<button class="card-btn card-btn-launch" onclick="launchScenario('${s.id}')">&#9654; Launch</button>`;
+            }
+
+            const err = cardErrors.get(s.id);
+            const errorBlock = err ? `<div class="card-error">${err}</div>` : '';
+
             card.innerHTML = `
-                <div class="scenario-icon">${SCENARIO_ICONS[s.id] || '\uD83D\uDD27'}</div>
-                <h3>${s.name}</h3>
-                <p>${s.description.substring(0, 120)}${s.description.length > 120 ? '...' : ''}</p>
-                <span class="scenario-ns">${s.namespace}</span>
-                <span class="running-badge" style="display: ${isRunning ? 'inline-block' : 'none'};
-                    position: absolute; top: 10px; right: 10px; background: var(--green); color: #000;
-                    font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 10px; letter-spacing: 0.5px;">RUNNING</span>
+                ${runningPill}
+                <div class="card-body">
+                    <div class="scenario-icon">${s.icon || '\uD83D\uDD27'}</div>
+                    <h3>${s.name}</h3>
+                    <p>${s.description}</p>
+                    <span class="scenario-ns">${s.namespace}</span>
+                </div>
+                <div class="scenario-actions">${actions}</div>
+                ${errorBlock}
             `;
-            card.onclick = () => selectScenario(s.id);
             grid.appendChild(card);
         });
-    }
-
-    function selectScenario(id) {
-        selectedScenario = id;
-        document.querySelectorAll('.scenario-card').forEach(c => {
-            c.classList.toggle('selected', c.dataset.id === id);
-        });
-        document.getElementById('connection-panel').classList.add('visible');
-        document.getElementById('launch-btn').disabled = false;
     }
 
     function deriveUrls() {
@@ -629,6 +690,20 @@
         });
     });
 
+    function setConnCheck(id, ok) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = ok ? '✅' : '❌';
+        el.className = 'conn-check ' + (ok ? 'conn-ok' : 'conn-fail');
+    }
+
+    function clearConnChecks() {
+        ['check-kibana', 'check-es', 'check-otlp'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) { el.textContent = ''; el.className = 'conn-check'; }
+        });
+    }
+
     async function testConnection() {
         const kibanaUrl = document.getElementById('kibana-url').value.trim();
         const key = document.getElementById('api-key').value.trim();
@@ -640,6 +715,7 @@
             return;
         }
 
+        clearConnChecks();
         msg.textContent = 'Testing...';
         msg.className = 'status-msg visible info';
 
@@ -651,7 +727,6 @@
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
-                    scenario_id: selectedScenario,
                     kibana_url: kibanaUrl,
                     api_key: key,
                     elastic_url: esUrl,
@@ -659,87 +734,111 @@
                 }),
             });
             const data = await resp.json();
-            if (data.ok) {
-                let status = 'Connected! Cluster: ' + (data.cluster_name || 'OK');
-                if (data.otlp_ok) status += ' | OTLP OK';
-                else status += ' | OTLP not verified';
-                msg.textContent = status;
-                msg.className = 'status-msg visible ok';
 
-                if (data.elastic_url && !document.getElementById('es-url').dataset.manual) {
-                    document.getElementById('es-url').value = data.elastic_url;
-                }
-                if (data.otlp_endpoint && !document.getElementById('otlp-url').dataset.manual) {
-                    document.getElementById('otlp-url').value = data.otlp_endpoint;
-                }
-            } else {
-                msg.textContent = 'Connection failed: ' + (data.error || 'Unknown error');
-                msg.className = 'status-msg visible err';
-            }
+            // Set per-component checkmarks (only for components that were tested)
+            if ('kibana_ok' in data) setConnCheck('check-kibana', data.kibana_ok);
+            if ('es_ok'     in data) setConnCheck('check-es',     data.es_ok);
+            if ('otlp_ok'   in data) setConnCheck('check-otlp',   data.otlp_ok);
+
+            // Build status line from tested components only
+            const parts = [];
+            if ('kibana_ok' in data)
+                parts.push('Kibana: '        + (data.kibana_ok ? 'OK' : (data.kibana_error || 'Failed')));
+            if ('es_ok' in data)
+                parts.push('Elasticsearch: ' + (data.es_ok     ? 'OK' : (data.es_error    || 'Failed')));
+            if ('otlp_ok' in data)
+                parts.push('OTLP: '          + (data.otlp_ok   ? 'OK' : (data.otlp_error  || 'Failed')));
+
+            const anyFail = data.kibana_ok === false || data.es_ok === false || data.otlp_ok === false;
+            msg.textContent = parts.join(' | ') || (data.error || 'Unknown error');
+            msg.className   = 'status-msg visible ' + (anyFail ? 'err' : 'ok');
+
+            // Populate derived URLs if field is empty or not manually set
+            const esField = document.getElementById('es-url');
+            if (data.elastic_url && (!esField.value || !esField.dataset.manual))
+                esField.value = data.elastic_url;
+            const otlpField = document.getElementById('otlp-url');
+            if (data.otlp_endpoint && (!otlpField.value || !otlpField.dataset.manual))
+                otlpField.value = data.otlp_endpoint;
         } catch (e) {
             msg.textContent = 'Connection test endpoint not available — you can still launch';
             msg.className = 'status-msg visible info';
         }
     }
 
-    async function launchScenario() {
-        if (!selectedScenario) return;
+    async function launchScenario(scenarioId) {
+        if (!scenarioId) return;
+        if (deployingIds.has(scenarioId)) return;
 
-        const kibanaUrl = document.getElementById('kibana-url').value.trim();
-        const apiKey = document.getElementById('api-key').value.trim();
-        const esUrl = document.getElementById('es-url').value.trim() || undefined;
-        const otlpUrl = document.getElementById('otlp-url').value.trim() || undefined;
-
-        if (!kibanaUrl && !apiKey) {
-            window.location.href = '/home?deployment_id=' + selectedScenario;
-            return;
+        const usingEnvCreds = envCreds;
+        const body = { scenario_id: scenarioId };
+        if (!usingEnvCreds) {
+            const kibanaUrl = document.getElementById('kibana-url').value.trim();
+            const apiKey = document.getElementById('api-key').value.trim();
+            const esUrl = document.getElementById('es-url').value.trim() || undefined;
+            const otlpUrl = document.getElementById('otlp-url').value.trim() || undefined;
+            body.kibana_url = kibanaUrl;
+            body.api_key = apiKey;
+            if (esUrl) body.elastic_url = esUrl;
+            if (otlpUrl) body.otlp_url = otlpUrl;
         }
 
-        const launchBtn = document.getElementById('launch-btn');
-        launchBtn.disabled = true;
-        launchBtn.textContent = 'Deploying...';
+        cardErrors.delete(scenarioId);
+        deployingIds.add(scenarioId);
+        noteDeployOrder(scenarioId);
+        renderScenarios();
 
         try {
             const resp = await fetch('/api/setup/launch', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    scenario_id: selectedScenario,
-                    kibana_url: kibanaUrl,
-                    api_key: apiKey,
-                    elastic_url: esUrl,
-                    otlp_url: otlpUrl,
-                }),
+                body: JSON.stringify(body),
             });
             const data = await resp.json();
             if (data.error) {
-                const msg = document.getElementById('status-msg');
-                msg.textContent = 'Launch failed: ' + data.error;
-                msg.className = 'status-msg visible err';
-                launchBtn.disabled = false;
-                launchBtn.innerHTML = '<span class="btn-icon">&#9654;</span>Launch';
+                deployingIds.delete(scenarioId);
+                deployOrder.delete(scenarioId);
+                cardErrors.set(scenarioId, 'Launch failed: ' + data.error);
+                renderScenarios();
                 return;
             }
 
-            document.getElementById('progress-panel').classList.add('visible');
-            pollProgress(data.deployment_id || selectedScenario);
+            const deployId = data.deployment_id || scenarioId;
+            const scenarioObj = scenarios.find(x => x.id === scenarioId);
+            const scenarioLabel = scenarioObj ? scenarioObj.name : scenarioId;
+            createProgressPanel('progress-panel-deploy-' + deployId, 'Deploying ' + scenarioLabel + '…');
+            pollProgress(deployId, scenarioId);
         } catch (e) {
-            const msg = document.getElementById('status-msg');
-            msg.textContent = 'Launch error: ' + e.message;
-            msg.className = 'status-msg visible err';
-            launchBtn.disabled = false;
-            launchBtn.innerHTML = '<span class="btn-icon">&#9654;</span>Launch';
+            deployingIds.delete(scenarioId);
+            cardErrors.set(scenarioId, 'Launch error: ' + e.message);
+            renderScenarios();
         }
     }
 
-    function renderProgress(data) {
-        const container = document.getElementById('progress-steps');
+    function createProgressPanel(panelId, title) {
+        const container = document.getElementById('progress-panels-container');
+        const panel = document.createElement('div');
+        panel.className = 'progress-panel';
+        panel.id = panelId;
+        panel.innerHTML = `<div class="progress-inner"><h2>${title}</h2><div class="progress-steps-inner"><div class="progress-step"><span class="step-icon running"><span class="spinner"></span></span><span class="step-name">Starting...</span></div></div></div>`;
+        container.appendChild(panel);
+        return panel;
+    }
+
+    function removeProgressPanel(panelId, delay = 0) {
+        setTimeout(() => {
+            const panel = document.getElementById(panelId);
+            if (panel) panel.remove();
+        }, delay);
+    }
+
+    function renderProgress(data, stepsContainer) {
         if (!data.steps || data.steps.length === 0) {
-            container.innerHTML = '<div class="progress-step"><span class="step-icon running"><span class="spinner"></span></span><span class="step-name">Starting deployment...</span></div>';
+            stepsContainer.innerHTML = '<div class="progress-step"><span class="step-icon running"><span class="spinner"></span></span><span class="step-name">Starting...</span></div>';
             return;
         }
 
-        container.innerHTML = data.steps.map(s => {
+        stepsContainer.innerHTML = data.steps.map(s => {
             let icon = '';
             switch (s.status) {
                 case 'ok': icon = '<span class="step-icon ok">&#10003;</span>'; break;
@@ -754,50 +853,95 @@
         }).join('');
     }
 
-    async function pollProgress(deploymentId) {
+    function updateQueueState(data, queuedSet, key) {
+        const first = data && data.steps && data.steps[0];
+        const isQueued = first && first.name === 'Queued' && first.status === 'running';
+        const wasQueued = queuedSet.has(key);
+        if (isQueued) {
+            queuedSet.add(key);
+            // Detail looks like "Position 2 of 3 in queue" → keep just "2 of 3"
+            const m = (first.detail || '').match(/Position (\d+) of (\d+)/);
+            queuePositions.set(key, m ? (m[1] + ' of ' + m[2]) : '');
+        } else {
+            queuedSet.delete(key);
+            queuePositions.delete(key);
+        }
+        return wasQueued !== isQueued;
+    }
+
+    async function pollProgress(deploymentId, scenarioId) {
+        const panelId = 'progress-panel-deploy-' + deploymentId;
+        const panel = document.getElementById(panelId);
+        if (!panel) return;
+        const stepsContainer = panel.querySelector('.progress-steps-inner');
+
         try {
             const url = deploymentId ? '/api/setup/progress?deployment_id=' + deploymentId : '/api/setup/progress';
             const resp = await fetch(url);
             const data = await resp.json();
-            renderProgress(data);
+            renderProgress(data, stepsContainer);
+
+            if (scenarioId && updateQueueState(data, queuedDeployIds, scenarioId)) {
+                renderScenarios();
+            }
 
             if (data.finished) {
-                const launchBtn = document.getElementById('launch-btn');
+                if (scenarioId) {
+                    deployingIds.delete(scenarioId);
+                    queuedDeployIds.delete(scenarioId);
+                    queuePositions.delete(scenarioId);
+                    deployOrder.delete(scenarioId);
+                }
                 if (data.error) {
-                    launchBtn.textContent = 'Retry';
-                    launchBtn.disabled = false;
+                    panel.querySelector('h2').textContent += ' — Failed';
+                    if (scenarioId) cardErrors.set(scenarioId, 'Deployment failed — see progress for details');
+                    renderScenarios();
                 } else {
-                    launchBtn.innerHTML = '<span class="btn-icon">&#10003;</span>Complete — Go to Dashboard';
-                    launchBtn.disabled = false;
-                    launchBtn.onclick = () => { window.location.href = '/home?deployment_id=' + (deploymentId || selectedScenario); };
+                    if (scenarioId) cardErrors.delete(scenarioId);
                     refreshDeployments();
+                    removeProgressPanel(panelId, 3000);
                 }
                 return;
             }
         } catch (e) {}
 
-        setTimeout(() => pollProgress(deploymentId), 1500);
+        setTimeout(() => pollProgress(deploymentId, scenarioId), 1500);
+    }
+
+    function showConfirm(message) {
+        return new Promise(resolve => {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:9999;';
+            overlay.innerHTML = `
+                <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:28px 32px;max-width:420px;width:90%;">
+                    <p style="color:var(--text);font-size:14px;margin-bottom:24px;line-height:1.5;">${message}</p>
+                    <div style="display:flex;gap:12px;justify-content:flex-end;">
+                        <button id="_confirm-cancel" style="background:var(--white);color:var(--text);border:1.5px solid var(--border-card);border-radius:8px;padding:8px 20px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Cancel</button>
+                        <button id="_confirm-ok" style="background:#BD271E;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Stop &amp; Teardown</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(overlay);
+            overlay.querySelector('#_confirm-ok').onclick = () => { document.body.removeChild(overlay); resolve(true); };
+            overlay.querySelector('#_confirm-cancel').onclick = () => { document.body.removeChild(overlay); resolve(false); };
+        });
     }
 
     async function stopAndTeardown(deploymentId) {
         // Find the scenario name for display
         const dep = activeDeployments.find(d => d.deployment_id === deploymentId);
         const scenarioName = dep ? dep.scenario_name : deploymentId;
-        if (!confirm('Stop generators and remove artifacts for ' + scenarioName + '?')) return;
+        const scenarioId = dep ? dep.scenario_id : null;
+        if (!await showConfirm('Stop generators and remove artifacts for <strong>' + scenarioName + '</strong>?')) return;
 
-        // Disable the teardown button to prevent double-clicks
-        const btns = document.querySelectorAll('button[onclick*="stopAndTeardown"]');
-        btns.forEach(b => { if (b.textContent.includes('Teardown')) b.disabled = true; });
+        // Grey out only this deployment's teardown button immediately
+        tearingDownIds.add(deploymentId);
+        noteTeardownOrder(deploymentId);
+        if (scenarioId) tearingDownScenarioIds.add(scenarioId);
+        renderScenarios();
 
-        // Show progress panel with teardown heading
-        const progressPanel = document.getElementById('progress-panel');
-        progressPanel.classList.add('visible');
-        progressPanel.querySelector('h2').textContent = 'Removing ' + scenarioName + '...';
-        document.getElementById('progress-steps').innerHTML =
-            '<div class="progress-step"><span class="step-icon running"><span class="spinner"></span></span><span class="step-name">Starting teardown...</span></div>';
-
-        // Hide connection panel so progress is prominent
-        document.getElementById('connection-panel').classList.remove('visible');
+        // Create a dedicated progress panel for this teardown
+        const panelId = 'progress-panel-teardown-' + deploymentId;
+        createProgressPanel(panelId, 'Removing ' + scenarioName + '…');
 
         try {
             const resp = await fetch('/api/setup/stop-and-teardown', {
@@ -807,44 +951,64 @@
             });
             const data = await resp.json();
             if (data.status === 'stopping') {
-                pollTeardownProgress(deploymentId, scenarioName);
+                pollTeardownProgress(deploymentId, scenarioName, scenarioId);
             } else if (data.ok) {
                 // Legacy sync response (no credentials case)
-                progressPanel.classList.remove('visible');
+                tearingDownIds.delete(deploymentId);
+                teardownOrder.delete(deploymentId);
+                if (scenarioId) tearingDownScenarioIds.delete(scenarioId);
+                removeProgressPanel(panelId);
                 const msg = document.getElementById('status-msg');
                 msg.textContent = 'Teardown complete for ' + scenarioName;
                 msg.className = 'status-msg visible ok';
                 refreshDeployments();
             } else {
-                progressPanel.classList.remove('visible');
+                tearingDownIds.delete(deploymentId);
+                teardownOrder.delete(deploymentId);
+                if (scenarioId) tearingDownScenarioIds.delete(scenarioId);
+                removeProgressPanel(panelId);
+                renderScenarios();
                 alert('Teardown failed: ' + (data.error || 'Unknown error'));
             }
         } catch (e) {
-            progressPanel.classList.remove('visible');
+            tearingDownIds.delete(deploymentId);
+            teardownOrder.delete(deploymentId);
+            if (scenarioId) tearingDownScenarioIds.delete(scenarioId);
+            removeProgressPanel(panelId);
+            renderScenarios();
             alert('Teardown error: ' + e.message);
         }
     }
 
-    async function pollTeardownProgress(deploymentId, scenarioName) {
+    async function pollTeardownProgress(deploymentId, scenarioName, scenarioId) {
+        const panelId = 'progress-panel-teardown-' + deploymentId;
+        const panel = document.getElementById(panelId);
+        if (!panel) return;
+        const stepsContainer = panel.querySelector('.progress-steps-inner');
+
         try {
             const resp = await fetch('/api/setup/teardown-progress?deployment_id=' + deploymentId);
             const data = await resp.json();
-            renderProgress(data);
+            renderProgress(data, stepsContainer);
+
+            if (updateQueueState(data, queuedTeardownIds, deploymentId)) {
+                renderScenarios();
+            }
 
             if (data.finished) {
-                const progressPanel = document.getElementById('progress-panel');
-                progressPanel.querySelector('h2').textContent = scenarioName + ' removed';
+                tearingDownIds.delete(deploymentId);
+                queuedTeardownIds.delete(deploymentId);
+                queuePositions.delete(deploymentId);
+                teardownOrder.delete(deploymentId);
+                if (scenarioId) tearingDownScenarioIds.delete(scenarioId);
+                panel.querySelector('h2').textContent = scenarioName + ' removed';
                 refreshDeployments();
-                // Hide progress after a short delay
-                setTimeout(() => {
-                    progressPanel.classList.remove('visible');
-                    progressPanel.querySelector('h2').textContent = 'Deployment Progress';
-                }, 3000);
+                removeProgressPanel(panelId, 3000);
                 return;
             }
         } catch (e) {}
 
-        setTimeout(() => pollTeardownProgress(deploymentId, scenarioName), 1500);
+        setTimeout(() => pollTeardownProgress(deploymentId, scenarioName, scenarioId), 1500);
     }
 
     init();
