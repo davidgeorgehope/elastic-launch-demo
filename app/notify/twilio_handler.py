@@ -74,12 +74,7 @@ async def send_sms(
         logger.error("Twilio phone numbers not configured (FROM=%s, TO=%s)", sender, to)
         return {"error": "Phone numbers not configured", "sent": False}
 
-    body = (
-        f"[NOVA-7 ALERT]\n"
-        f"{event_summary}\n"
-        f"\n"
-        f"Investigate: {deep_link}"
-    )
+    body = f"[NOVA-7 ALERT]\n" f"{event_summary}\n" f"\n" f"Investigate: {deep_link}"
 
     payload = {
         "To": to,
@@ -258,7 +253,9 @@ async def send_alert(
     if voice and twiml_url:
         results["voice"] = await make_voice_call(event_summary, twiml_url)
     elif voice and not twiml_url:
-        logger.warning("Voice call requested but no twiml_url provided for channel %d", channel)
+        logger.warning(
+            "Voice call requested but no twiml_url provided for channel %d", channel
+        )
         results["voice"] = {"called": False, "error": "No twiml_url provided"}
 
     return results

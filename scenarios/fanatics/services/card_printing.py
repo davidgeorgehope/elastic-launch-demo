@@ -54,7 +54,9 @@ class CardPrintingSystemService(BaseService):
         # -- Normal telemetry --
         for sensor_key, sensor in self.PRODUCTION_METRICS.items():
             value = random.uniform(sensor["nominal_min"], sensor["nominal_max"])
-            noise = random.gauss(0, (sensor["nominal_max"] - sensor["nominal_min"]) * 0.02)
+            noise = random.gauss(
+                0, (sensor["nominal_max"] - sensor["nominal_min"]) * 0.02
+            )
             value = round(value + noise, 2)
             if not active_channels:
                 value = max(sensor["nominal_min"], min(sensor["nominal_max"], value))

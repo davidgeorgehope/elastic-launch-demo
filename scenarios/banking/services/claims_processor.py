@@ -32,14 +32,26 @@ class ClaimsProcessorService(BaseService):
             self._emit_claims_summary()
             self._last_summary = time.time()
 
-        queue_depth = random.randint(5, 50) if not active_channels else random.randint(200, 2000)
+        queue_depth = (
+            random.randint(5, 50) if not active_channels else random.randint(200, 2000)
+        )
         self.emit_metric("claims_processor.queue_depth", float(queue_depth), "claims")
-        self.emit_metric("claims_processor.avg_cycle_time_days", round(random.uniform(3.0, 12.0), 1), "days")
-        self.emit_metric("claims_processor.photo_estimates_pending", float(random.randint(2, 30)), "estimates")
+        self.emit_metric(
+            "claims_processor.avg_cycle_time_days",
+            round(random.uniform(3.0, 12.0), 1),
+            "days",
+        )
+        self.emit_metric(
+            "claims_processor.photo_estimates_pending",
+            float(random.randint(2, 30)),
+            "estimates",
+        )
 
     def _emit_claim_intake(self) -> None:
         self._claims_processed += 1
-        claim_type = random.choice(["auto_collision", "auto_comp", "property", "renters"])
+        claim_type = random.choice(
+            ["auto_collision", "auto_comp", "property", "renters"]
+        )
         severity = random.choice(["LOW", "MODERATE", "HIGH", "SEVERE"])
         self.emit_log(
             "INFO",

@@ -23,13 +23,20 @@ class FirewallGatewayService(BaseService):
             self.emit_cascade_logs(ch)
 
         # -- Session table --
-        session_count = random.randint(15000, 45000) if not active_channels else random.randint(55000, 64000)
+        session_count = (
+            random.randint(15000, 45000)
+            if not active_channels
+            else random.randint(55000, 64000)
+        )
         max_sessions = 64000
         session_rate = random.randint(500, 2000)
         self.emit_metric("firewall.session_count", float(session_count), "sessions")
         self.emit_metric("firewall.session_rate", float(session_rate), "sessions/s")
-        self.emit_metric("firewall.session_utilization_pct",
-                         round(session_count / max_sessions * 100, 1), "%")
+        self.emit_metric(
+            "firewall.session_utilization_pct",
+            round(session_count / max_sessions * 100, 1),
+            "%",
+        )
 
         self.emit_log(
             "INFO",
@@ -62,8 +69,16 @@ class FirewallGatewayService(BaseService):
         )
 
         # -- CPU utilization --
-        cpu_mgmt = round(random.uniform(15.0, 40.0), 1) if not active_channels else round(random.uniform(75.0, 98.0), 1)
-        cpu_dp = round(random.uniform(20.0, 50.0), 1) if not active_channels else round(random.uniform(80.0, 99.0), 1)
+        cpu_mgmt = (
+            round(random.uniform(15.0, 40.0), 1)
+            if not active_channels
+            else round(random.uniform(75.0, 98.0), 1)
+        )
+        cpu_dp = (
+            round(random.uniform(20.0, 50.0), 1)
+            if not active_channels
+            else round(random.uniform(80.0, 99.0), 1)
+        )
         self.emit_metric("firewall.cpu_mgmt_pct", cpu_mgmt, "%")
         self.emit_metric("firewall.cpu_dataplane_pct", cpu_dp, "%")
 
@@ -79,8 +94,12 @@ class FirewallGatewayService(BaseService):
         )
 
         # -- Certificate status --
-        cert_days_remaining = random.randint(30, 365) if not active_channels else random.randint(0, 5)
-        self.emit_metric("firewall.cert_days_remaining", float(cert_days_remaining), "days")
+        cert_days_remaining = (
+            random.randint(30, 365) if not active_channels else random.randint(0, 5)
+        )
+        self.emit_metric(
+            "firewall.cert_days_remaining", float(cert_days_remaining), "days"
+        )
         self.emit_log(
             "INFO",
             f"1,2025/01/15 14:32:01,PA-5260,SYSTEM,general,0,cert-status,"

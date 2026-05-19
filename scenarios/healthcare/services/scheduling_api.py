@@ -16,7 +16,12 @@ class SchedulingAPIService(BaseService):
         self._appointments_booked = 0
         self._last_bed_census = time.time()
         self._units = ["ICU-3A", "ICU-3B", "MedSurg-4N", "MedSurg-4S", "ED-1", "NICU-2"]
-        self._resource_types = ["exam_room", "procedure_room", "consult_room", "infusion_bay"]
+        self._resource_types = [
+            "exam_room",
+            "procedure_room",
+            "consult_room",
+            "infusion_bay",
+        ]
 
     def generate_telemetry(self) -> None:
         # -- Fault injection ------------------------------------
@@ -38,10 +43,20 @@ class SchedulingAPIService(BaseService):
 
         # Metrics
         self._appointments_booked += 1
-        self.emit_metric("scheduling.appointments_booked", float(self._appointments_booked), "appointments")
-        occupancy = round(random.uniform(75.0, 96.0), 1) if not active_channels else round(random.uniform(97.0, 100.0), 1)
+        self.emit_metric(
+            "scheduling.appointments_booked",
+            float(self._appointments_booked),
+            "appointments",
+        )
+        occupancy = (
+            round(random.uniform(75.0, 96.0), 1)
+            if not active_channels
+            else round(random.uniform(97.0, 100.0), 1)
+        )
         self.emit_metric("scheduling.bed_occupancy_pct", occupancy, "%")
-        self.emit_metric("scheduling.or_utilization_pct", round(random.uniform(65.0, 92.0), 1), "%")
+        self.emit_metric(
+            "scheduling.or_utilization_pct", round(random.uniform(65.0, 92.0), 1), "%"
+        )
 
     def _emit_appointment_booking(self) -> None:
         patient_id = f"PT-{random.randint(100000, 999999)}"

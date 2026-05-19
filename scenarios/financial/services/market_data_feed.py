@@ -43,10 +43,20 @@ class MarketDataFeedService(BaseService):
             self._last_feed_summary = time.time()
 
         # Metrics
-        tps = random.randint(50000, 200000) if not active_channels else random.randint(5000, 20000)
+        tps = (
+            random.randint(50000, 200000)
+            if not active_channels
+            else random.randint(5000, 20000)
+        )
         self.emit_metric("market_data.ticks_per_second", float(tps), "tps")
-        self.emit_metric("market_data.feed_latency_us", float(random.randint(10, 500)), "us")
-        self.emit_metric("market_data.active_subscriptions", float(random.randint(5000, 50000)), "subscriptions")
+        self.emit_metric(
+            "market_data.feed_latency_us", float(random.randint(10, 500)), "us"
+        )
+        self.emit_metric(
+            "market_data.active_subscriptions",
+            float(random.randint(5000, 50000)),
+            "subscriptions",
+        )
 
     def _emit_tick_processing(self) -> None:
         self._ticks_processed += random.randint(1000, 10000)

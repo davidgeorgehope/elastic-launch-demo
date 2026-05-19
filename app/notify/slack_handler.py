@@ -142,7 +142,11 @@ def _build_alert_blocks(
                         "text": "View Dashboard",
                         "emoji": True,
                     },
-                    "url": details_url.split("/app/")[0] + "/app/dashboards" if "/app/" in details_url else details_url,
+                    "url": (
+                        details_url.split("/app/")[0] + "/app/dashboards"
+                        if "/app/" in details_url
+                        else details_url
+                    ),
                     "action_id": f"dashboard_channel_{channel_id}",
                 },
             ],
@@ -189,7 +193,9 @@ async def send_slack_alert(
         return {"sent": False, "error": "Slack webhook URL not configured"}
 
     color = STATUS_COLORS.get(status.upper(), "#808080")
-    blocks = _build_alert_blocks(channel_id, channel_name, status, details_url, extra_context)
+    blocks = _build_alert_blocks(
+        channel_id, channel_name, status, details_url, extra_context
+    )
 
     # Build the webhook payload with both blocks (rich) and text (fallback)
     fallback_text = (

@@ -552,6 +552,13 @@ def run(client: OTLPClient, stop_event: threading.Event, scenario_data: dict | N
             _service_cloud[svc_name] = svc_cfg.get("cloud_provider", "")
         _channel_registry = scenario_data.get("channel_registry", {})
 
+    # Filter out database services — they're managed instances, not K8s deployments
+    if scenario_data:
+        db_services = {name for name, cfg in scenario_data.get("services", {}).items()
+                       if cfg.get("subsystem") == "database"}
+        for c in clusters:
+            c["services"] = [s for s in c["services"] if s not in db_services]
+
     # Collect all service names across clusters for state tracking
     all_services = []
     for c in clusters:
@@ -602,8 +609,8 @@ def run(client: OTLPClient, stop_event: threading.Event, scenario_data: dict | N
                 pod_res = _build_pod_resource(svc, pod_data, cluster)
                 metrics = _generate_pod_metrics(svc, state, rng)
 
+                intensity_ratio = oom_intensity / 100.0
                 if is_spiked:
-                    intensity_ratio = oom_intensity / 100.0
                     # Override memory metrics for spiked pods
                     for m in metrics:
                         if m["name"] == "k8s.pod.memory_limit_utilization":

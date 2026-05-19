@@ -1,0 +1,10 @@
+{
+ "email": null,
+ "enabled": true,
+ "full_name": "Guest User",
+ "metadata": {},
+ "roles": [
+  "viewer-custom"
+ ],
+ "username": "guest"
+}

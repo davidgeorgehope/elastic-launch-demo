@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING
 from app.chaos.controller import ChaosController
 from app.chaos.remediation_poller import RemediationPoller
 from app.context import ScenarioContext
-from app.dashboard.websocket import DashboardWebSocket
 from app.services.manager import ServiceManager
 from app.telemetry import OTLPClient
 
@@ -45,13 +44,9 @@ class ScenarioInstance:
             deployment_id=self.deployment_id,
         )
 
-        # Per-instance dashboard WS (shared broadcast for all connected clients)
-        self.dashboard_ws = DashboardWebSocket()
-
         # ServiceManager — owns service threads + generator threads
         self.service_manager = ServiceManager(
             chaos_controller=self.chaos_controller,
-            dashboard_ws=self.dashboard_ws,
             ctx=ctx,
             otlp_client=self.otlp,
         )
@@ -64,7 +59,6 @@ class ScenarioInstance:
                 elastic_api_key=ctx.elastic_api_key,
                 namespace=ctx.namespace,
                 chaos_controller=self.chaos_controller,
-                dashboard_ws=self.dashboard_ws,
                 stop_event=self.service_manager._stop_event,
             )
 
@@ -83,8 +77,11 @@ class ScenarioInstance:
         if self.remediation_poller:
             self.remediation_poller.start()
         self._running = True
-        logger.info("Instance %s started (%d services)", self.scenario_id,
-                     len(self.service_manager.services))
+        logger.info(
+            "Instance %s started (%d services)",
+            self.scenario_id,
+            len(self.service_manager.services),
+        )
 
     def stop(self) -> None:
         """Stop all services and generators."""

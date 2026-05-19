@@ -6,6 +6,7 @@ import random
 import time
 
 from app.services.base_service import BaseService
+from scenarios.gaming.executive_kpis import emit_executive_business_metrics_if_eligible
 
 
 class AnalyticsPipelineService(BaseService):
@@ -16,7 +17,13 @@ class AnalyticsPipelineService(BaseService):
         self._events_ingested = 0
         self._last_pipeline_report = time.time()
         self._pipelines = ["events-primary", "events-secondary", "replay-pipeline"]
-        self._event_types = ["match_complete", "player_login", "item_purchased", "level_up", "achievement_unlocked"]
+        self._event_types = [
+            "match_complete",
+            "player_login",
+            "item_purchased",
+            "level_up",
+            "achievement_unlocked",
+        ]
 
     def generate_telemetry(self) -> None:
         # ── Fault injection ────────────────────────────────────
@@ -37,13 +44,29 @@ class AnalyticsPipelineService(BaseService):
             self._last_pipeline_report = time.time()
 
         # Metrics
-        throughput = random.randint(3000, 8000) if not active_channels else random.randint(100, 2000)
+        throughput = (
+            random.randint(3000, 8000)
+            if not active_channels
+            else random.randint(100, 2000)
+        )
         self.emit_metric("analytics.throughput", float(throughput), "events/s")
-        lag_s = round(random.uniform(0.1, 3.0), 1) if not active_channels else round(random.uniform(30.0, 600.0), 1)
+        lag_s = (
+            round(random.uniform(0.1, 3.0), 1)
+            if not active_channels
+            else round(random.uniform(30.0, 600.0), 1)
+        )
         self.emit_metric("analytics.pipeline_lag_s", lag_s, "s")
-        self.emit_metric("analytics.events_ingested", float(self._events_ingested), "events")
-        buffer_pct = round(random.uniform(10.0, 60.0), 1) if not active_channels else round(random.uniform(85.0, 100.0), 1)
+        self.emit_metric(
+            "analytics.events_ingested", float(self._events_ingested), "events"
+        )
+        buffer_pct = (
+            round(random.uniform(10.0, 60.0), 1)
+            if not active_channels
+            else round(random.uniform(85.0, 100.0), 1)
+        )
         self.emit_metric("analytics.buffer_usage_pct", buffer_pct, "%")
+
+        emit_executive_business_metrics_if_eligible(self)
 
     def _emit_event_ingested(self) -> None:
         self._events_ingested += random.randint(50, 500)

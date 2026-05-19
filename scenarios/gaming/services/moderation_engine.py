@@ -16,7 +16,12 @@ class ModerationEngineService(BaseService):
         self._actions_taken = 0
         self._last_moderation_report = time.time()
         self._categories = ["harassment", "cheating", "hate_speech", "exploits", "spam"]
-        self._model_versions = ["automod-v5.2", "automod-v5.3", "automod-v6.0", "automod-v6.1"]
+        self._model_versions = [
+            "automod-v5.2",
+            "automod-v5.3",
+            "automod-v6.0",
+            "automod-v6.1",
+        ]
 
     def generate_telemetry(self) -> None:
         # ── Fault injection ────────────────────────────────────
@@ -39,11 +44,21 @@ class ModerationEngineService(BaseService):
         # Metrics
         scan_rate = random.randint(200, 2000)
         self.emit_metric("moderation.scan_rate", float(scan_rate), "msg/s")
-        fp_rate = round(random.uniform(0.5, 3.0), 2) if not active_channels else round(random.uniform(15.0, 45.0), 2)
+        fp_rate = (
+            round(random.uniform(0.5, 3.0), 2)
+            if not active_channels
+            else round(random.uniform(15.0, 45.0), 2)
+        )
         self.emit_metric("moderation.false_positive_rate", fp_rate, "%")
-        queue_depth = random.randint(50, 500) if not active_channels else random.randint(5000, 50000)
+        queue_depth = (
+            random.randint(50, 500)
+            if not active_channels
+            else random.randint(5000, 50000)
+        )
         self.emit_metric("moderation.report_queue_depth", float(queue_depth), "reports")
-        self.emit_metric("moderation.actions_taken", float(self._actions_taken), "actions")
+        self.emit_metric(
+            "moderation.actions_taken", float(self._actions_taken), "actions"
+        )
 
     def _emit_content_scanned(self) -> None:
         model = random.choice(self._model_versions)
@@ -69,7 +84,9 @@ class ModerationEngineService(BaseService):
     def _emit_report_processed(self) -> None:
         category = random.choice(self._categories)
         player_id = f"PLR-{random.randint(100000, 999999)}"
-        resolution = random.choice(["warning_issued", "temp_ban", "cleared", "escalated"])
+        resolution = random.choice(
+            ["warning_issued", "temp_ban", "cleared", "escalated"]
+        )
         wait_min = random.randint(1, 120)
         self.emit_log(
             "INFO",

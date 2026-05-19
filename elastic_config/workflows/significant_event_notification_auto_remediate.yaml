@@ -1,0 +1,153 @@
+version: "1"
+name: __SCENARIO_NAME__ Significant Event Notification (Auto-Remediate)
+description: >
+  Notify launch operations team and automatically execute remediation when a
+  significant event is detected on an auto-remediation channel (16-20).
+  Triggered by alert rules — uses event.rule.tags[1] for the error_type
+  search, extracts user_email from event_name, sends email notification
+  immediately, runs AI root cause analysis, creates a case, then automatically
+  queues remediation and closes the case.
+
+triggers:
+  - type: alert
+
+# NOTE: workflow inputs passed via subActionParams.inputs from alert rules resolve blank.
+# Channel-specific data is encoded in alert rule tags instead:
+#   tags[0] = namespace
+#   tags[1] = error_type
+#   tags[2] = action_type (remediation_action for this channel)
+#   tags[3] = channel number (as string)
+
+steps:
+  - name: enrich_context
+    type: elasticsearch.esql.query
+    with:
+      query: >
+        FROM logs.otel.__NS__,logs.otel.__NS__.* | WHERE KQL("body.text: \"{{ event.rule.tags[1] }}\" AND severity_text: \"ERROR\"") | KEEP event_name
+      format: json
+
+  - name: count_errors
+    type: elasticsearch.esql.query
+    with:
+      query: >
+        FROM logs.otel.__NS__,logs.otel.__NS__.*
+        | WHERE @timestamp > NOW() - 15 MINUTES AND severity_text == "ERROR"
+        | STATS total_errors = COUNT(*)
+      format: json
+
+  - name: parse_event_meta
+    type: data.set
+    with:
+      var:
+        - event_meta: "${{ steps.enrich_context.output.values[1][0] | json_parse }}"
+
+  - name: send_notification
+    type: email
+    connector-id: Elastic-Cloud-SMTP
+    if: "${{ steps.parse_event_meta.output.var[0].event_meta.user_email != '' and steps.parse_event_meta.output.var[0].event_meta.user_email != null }}"
+    with:
+      to:
+        - "{{ steps.parse_event_meta.output.var[0].event_meta.user_email }}"
+      subject: "__SCENARIO_NAME__ Alert: {{ event.rule.name }}"
+      message: >
+        Significant event detected in __SCENARIO_NAME__ mission:
+
+        Rule: {{ event.rule.name }}
+        Error Type: {{ event.rule.tags[1] }}
+        Total errors (15m): {{ steps.count_errors.output.values[0][0] }}
+
+        An AI root cause analysis is underway and automated remediation will
+        execute immediately after. A case with detailed findings will be
+        created and closed automatically.
+
+        Open Kibana to review:
+        __KIBANA_URL__/app/dashboards#/view/__NS__-exec-dashboard
+
+  - name: run_rca
+    type: kibana.request
+    with:
+      method: POST
+      path: "/api/agent_builder/converse"
+      headers:
+        kbn-xsrf: "true"
+      body:
+        agent_id: __AGENT_ID__
+        input: >
+          Significant event detected: {{ event.rule.name }}.
+          Error type: {{ event.rule.tags[1] }}.
+          Total errors in last 15 minutes: {{ steps.count_errors.output.values[0][0] }}.
+          Perform a root cause analysis only. Search logs for this error type,
+          identify affected services, trace the fault propagation, and provide
+          your structured RCA report. Do NOT execute any remediation actions.
+    timeout: 10m
+
+  - name: create_case
+    type: kibana.createCaseDefaultSpace
+    with:
+      title: "{{ event.rule.name }}"
+      description: |
+       [View Full Conversation](/app/agent_builder/conversations/{{ steps.run_rca.output.conversation_id }})
+
+       {{ steps.run_rca.output.response.message }}
+      tags:
+        - "__NS__"
+        - "{{ event.rule.tags[1] }}"
+      severity: "high"
+      owner: "observability"
+      settings:
+        syncAlerts: false
+      connector:
+        id: "none"
+        name: "none"
+        type: ".none"
+        fields: null
+
+  - name: attach_alert_to_case
+    type: kibana.request
+    with:
+      method: POST
+      path: "/api/cases/{{ steps.create_case.output.id }}/comments"
+      headers:
+        kbn-xsrf: "true"
+      body:
+        type: "alert"
+        alertId: "{{ event.alerts[0]._id }}"
+        index: "{{ event.alerts[0]._index }}"
+        rule:
+          id: "{{ event.rule.id }}"
+          name: "{{ event.rule.name }}"
+        owner: "observability"
+
+  - name: request_remediation
+    type: kibana.request
+    with:
+      method: POST
+      path: "/api/agent_builder/converse"
+      headers:
+        kbn-xsrf: "true"
+      body:
+        agent_id: __AGENT_ID__
+        conversation_id: "{{ steps.run_rca.output.conversation_id }}"
+        input: >
+          Execute remediation now using the remediation_action workflow with these parameters:
+          - action_type: {{ event.rule.tags[2] }}
+          - channel: {{ event.rule.tags[3] }}
+          - error_type: {{ event.rule.tags[1] }}
+          - case_id: {{ steps.create_case.output.id }}
+          - dry_run: false
+          - requires_approval: false
+          - justification: Automated remediation triggered by alert rule
+    timeout: 10m
+
+  - name: audit_log
+    type: elasticsearch.index
+    with:
+      index: "__NS__-significant-events-audit"
+      document:
+        rule_name: "{{ event.rule.name }}"
+        error_type: "{{ event.rule.tags[1] }}"
+        total_errors: "{{ steps.count_errors.output.values[0][0] }}"
+        rca_case_created: true
+        auto_remediated: true
+        mission_id: "__SCENARIO_NAME__"
+      refresh: wait_for

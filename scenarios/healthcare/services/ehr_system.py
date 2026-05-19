@@ -15,7 +15,14 @@ class EHRSystemService(BaseService):
         super().__init__(chaos_controller, otlp_client)
         self._encounters_total = 0
         self._last_census_report = time.time()
-        self._departments = ["ED", "ICU-3A", "MedSurg-4N", "L&D", "Oncology", "Cardiology"]
+        self._departments = [
+            "ED",
+            "ICU-3A",
+            "MedSurg-4N",
+            "L&D",
+            "Oncology",
+            "Cardiology",
+        ]
 
     def generate_telemetry(self) -> None:
         # -- Fault injection ------------------------------------
@@ -37,15 +44,23 @@ class EHRSystemService(BaseService):
 
         # Metrics
         self._encounters_total += 1
-        self.emit_metric("ehr.encounters_total", float(self._encounters_total), "encounters")
-        self.emit_metric("ehr.active_sessions", float(random.randint(40, 120)), "sessions")
-        query_ms = random.randint(5, 80) if not active_channels else random.randint(800, 5000)
+        self.emit_metric(
+            "ehr.encounters_total", float(self._encounters_total), "encounters"
+        )
+        self.emit_metric(
+            "ehr.active_sessions", float(random.randint(40, 120)), "sessions"
+        )
+        query_ms = (
+            random.randint(5, 80) if not active_channels else random.randint(800, 5000)
+        )
         self.emit_metric("ehr.query_latency_ms", float(query_ms), "ms")
 
     def _emit_encounter_event(self) -> None:
         dept = random.choice(self._departments)
         mrn = f"MRN-{random.randint(1000000, 9999999)}"
-        enc_type = random.choice(["inpatient", "outpatient", "emergency", "observation"])
+        enc_type = random.choice(
+            ["inpatient", "outpatient", "emergency", "observation"]
+        )
         self.emit_log(
             "INFO",
             f"[EHR] encounter_open type={enc_type} mrn={mrn} dept={dept} status=ACTIVE",
@@ -60,7 +75,9 @@ class EHRSystemService(BaseService):
 
     def _emit_chart_access(self) -> None:
         action = random.choice(["view", "edit", "sign", "cosign", "addendum"])
-        doc_type = random.choice(["progress_note", "h_and_p", "discharge_summary", "order_set"])
+        doc_type = random.choice(
+            ["progress_note", "h_and_p", "discharge_summary", "order_set"]
+        )
         provider = f"NPI-{random.randint(1000000000, 9999999999)}"
         latency_ms = random.randint(15, 120)
         self.emit_log(

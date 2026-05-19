@@ -1,0 +1,203 @@
+{
+ "applications": [
+  {
+   "application": "kibana-.kibana",
+   "privileges": [
+    "feature_actions.read",
+    "feature_advancedSettings.read",
+    "feature_aiAssistantManagementSelection.read",
+    "feature_apm.read",
+    "feature_canvas.read",
+    "feature_dashboard_v2.read",
+    "feature_dev_tools.read",
+    "feature_discover_v2.read",
+    "feature_entityManager.read",
+    "feature_filesManagement.read",
+    "feature_filesSharedImage.read",
+    "feature_fleet.read",
+    "feature_fleetv2.read",
+    "feature_generalCasesV3.all",
+    "feature_graph.read",
+    "feature_indexPatterns.read",
+    "feature_infrastructure.read",
+    "feature_inventory.read",
+    "feature_logs.read",
+    "feature_maintenanceWindow.read",
+    "feature_maps_v2.read",
+    "feature_ml.read",
+    "feature_observabilityAIAssistant.all",
+    "feature_observabilityCasesV3.all",
+    "feature_osquery.read",
+    "feature_profiling.read",
+    "feature_rulesSettings.read",
+    "feature_savedObjectsManagement.read",
+    "feature_savedObjectsTagging.read",
+    "feature_savedQueryManagement.read",
+    "feature_slo.read",
+    "feature_stackAlerts.read",
+    "feature_uptime.read",
+    "feature_visualize_v2.read",
+    "feature_streams.read",
+    "feature_workflowsManagement.minimal_read",
+    "feature_workflowsManagement.workflow_execute",
+    "feature_workflowsManagement.workflow_read",
+    "feature_workflowsManagement.workflow_execution_read",
+    "feature_agentBuilder.read"
+   ],
+   "resources": [
+    "*"
+   ]
+  }
+ ],
+ "cluster": [
+  "cluster:monitor/main",
+  "cluster:monitor/xpack/info",
+  "cluster:monitor/remote/info",
+  "monitor"
+ ],
+ "indices": [
+  {
+   "allow_restricted_indices": false,
+   "names": [
+    ".monitoring-*"
+   ],
+   "privileges": [
+    "read",
+    "read_cross_cluster"
+   ]
+  },
+  {
+   "allow_restricted_indices": false,
+   "names": [
+    "metricbeat-*"
+   ],
+   "privileges": [
+    "read",
+    "read_cross_cluster"
+   ],
+   "query": "{\"bool\":{\"must_not\":[{\"term\":{\"event.dataset\":{\"value\":\"http.elastic-agent\"}}}]}}"
+  },
+  {
+   "allow_restricted_indices": false,
+   "names": [
+    "/~(([.]|ilm-history-|metricbeat-|filebeat-elastic-cloud-logs-8).*)/"
+   ],
+   "privileges": [
+    "read",
+    "view_index_metadata"
+   ]
+  },
+  {
+   "allow_restricted_indices": false,
+   "names": [
+    ".siem-signals*",
+    ".lists-*",
+    ".items-*"
+   ],
+   "privileges": [
+    "read",
+    "view_index_metadata"
+   ]
+  },
+  {
+   "allow_restricted_indices": false,
+   "names": [
+    ".alerts*",
+    ".preview.alerts*"
+   ],
+   "privileges": [
+    "read",
+    "view_index_metadata"
+   ]
+  },
+  {
+   "allow_restricted_indices": false,
+   "field_security": {
+    "grant": [
+     "*"
+    ]
+   },
+   "names": [
+    "logs-apm*",
+    "metrics-apm*",
+    "traces-apm*",
+    "apm-*",
+    "metrics-*"
+   ],
+   "privileges": [
+    "read",
+    "view_index_metadata",
+    "monitor"
+   ]
+  },
+  {
+   "allow_restricted_indices": false,
+   "field_security": {
+    "grant": [
+     "*"
+    ]
+   },
+   "names": [
+    ".slo-observability.*"
+   ],
+   "privileges": [
+    "read",
+    "view_index_metadata"
+   ]
+  },
+  {
+   "allow_restricted_indices": false,
+   "field_security": {
+    "grant": [
+     "*"
+    ]
+   },
+   "names": [
+    "logs-*",
+    "logs*"
+   ],
+   "privileges": [
+    "read",
+    "view_index_metadata",
+    "read_failure_store"
+   ]
+  },
+  {
+   "allow_restricted_indices": false,
+   "field_security": {
+    "grant": [
+     "*"
+    ]
+   },
+   "names": [
+    ".internal.alerts-observability.uptime.alerts-*"
+   ],
+   "privileges": [
+    "write"
+   ]
+  },
+  {
+   "allow_restricted_indices": false,
+   "field_security": {
+    "grant": [
+     "*"
+    ]
+   },
+   "names": [
+    "*-remediation-queue",
+    "*-remediation-audit"
+   ],
+   "privileges": [
+    "auto_configure",
+    "create_doc",
+    "read",
+    "view_index_metadata"
+   ]
+  }
+ ],
+ "metadata": {},
+ "run_as": [],
+ "transient_metadata": {
+  "enabled": true
+ }
+}

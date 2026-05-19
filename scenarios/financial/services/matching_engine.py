@@ -36,9 +36,13 @@ class MatchingEngineService(BaseService):
             self._last_book_snapshot = time.time()
 
         # Metrics
-        latency = random.randint(5, 80) if not active_channels else random.randint(500, 50000)
+        latency = (
+            random.randint(5, 80) if not active_channels else random.randint(500, 50000)
+        )
         self.emit_metric("matching_engine.match_latency_us", float(latency), "us")
-        self.emit_metric("matching_engine.matches_total", float(self._matches_total), "trades")
+        self.emit_metric(
+            "matching_engine.matches_total", float(self._matches_total), "trades"
+        )
         self.emit_metric(
             "matching_engine.order_book_depth",
             float(random.randint(500, 5000)),

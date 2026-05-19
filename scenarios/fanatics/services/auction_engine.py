@@ -29,7 +29,9 @@ class AuctionEngineService(BaseService):
         self.emit_metric("auction.active_auctions", float(active_auctions), "auctions")
         self.emit_metric("auction.bids_per_min", float(bids_per_min), "bids/min")
         self.emit_metric("auction.bid_latency_ms", bid_latency_ms, "ms")
-        self.emit_metric("auction.websocket_connections", float(websocket_connections), "connections")
+        self.emit_metric(
+            "auction.websocket_connections", float(websocket_connections), "connections"
+        )
 
         self.emit_log(
             "INFO",

@@ -397,6 +397,12 @@ def run(client: OTLPClient, stop_event: threading.Event, scenario_data: dict | N
     error_resource = _build_resource_dynamic("mysql.error")
     trace_resource = _build_resource_dynamic("generic", "traces")
 
+    # Only emit traces if mysql-primary is in the scenario's services (avoids
+    # disconnected Service Map nodes when the scenario doesn't include it).
+    _emit_traces = True
+    if scenario_data and "services" in scenario_data:
+        _emit_traces = "mysql-primary" in scenario_data["services"]
+
     total_sent = 0
     total_spans = 0
     deadlock_storm = False
@@ -421,8 +427,8 @@ def run(client: OTLPClient, stop_event: threading.Event, scenario_data: dict | N
             spans.append(span)
         client.send_logs(slowlog_resource, slow_records)
 
-        # Send correlated trace spans
-        if spans:
+        # Send correlated trace spans (only if mysql-primary is in scenario topology)
+        if spans and _emit_traces:
             client.send_traces(trace_resource, spans)
             total_spans += len(spans)
 

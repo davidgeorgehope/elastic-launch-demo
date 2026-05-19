@@ -12,8 +12,13 @@ class FraudDetectorService(BaseService):
     SERVICE_NAME = "fraud-detector"
 
     PATTERNS = [
-        "VELOCITY", "GEOLOC", "AMOUNT", "WASH_TRADE",
-        "LAYERING", "SPOOFING", "FRONT_RUNNING",
+        "VELOCITY",
+        "GEOLOC",
+        "AMOUNT",
+        "WASH_TRADE",
+        "LAYERING",
+        "SPOOFING",
+        "FRONT_RUNNING",
     ]
 
     def __init__(self, chaos_controller, otlp_client):
@@ -41,10 +46,18 @@ class FraudDetectorService(BaseService):
 
         # Metrics
         self._scans_total += 1
-        self.emit_metric("fraud_detector.scans_total", float(self._scans_total), "scans")
-        fp_rate = round(random.uniform(0.5, 3.0), 2) if not active_channels else round(random.uniform(15.0, 50.0), 2)
+        self.emit_metric(
+            "fraud_detector.scans_total", float(self._scans_total), "scans"
+        )
+        fp_rate = (
+            round(random.uniform(0.5, 3.0), 2)
+            if not active_channels
+            else round(random.uniform(15.0, 50.0), 2)
+        )
         self.emit_metric("fraud_detector.false_positive_rate", fp_rate, "%")
-        self.emit_metric("fraud_detector.model_latency_ms", float(random.randint(5, 50)), "ms")
+        self.emit_metric(
+            "fraud_detector.model_latency_ms", float(random.randint(5, 50)), "ms"
+        )
 
     def _emit_scan_result(self) -> None:
         score = round(random.uniform(0.01, 0.35), 3)

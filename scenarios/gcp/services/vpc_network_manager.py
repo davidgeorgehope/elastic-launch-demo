@@ -13,8 +13,10 @@ class VpcNetworkManagerService(BaseService):
 
     NETWORKS = ["gcpnet-vpc-prod", "gcpnet-vpc-staging", "gcpnet-vpc-shared"]
     SUBNETS = [
-        "gcpnet-subnet-central1", "gcpnet-subnet-east1",
-        "gcpnet-subnet-europe1", "gcpnet-subnet-services",
+        "gcpnet-subnet-central1",
+        "gcpnet-subnet-east1",
+        "gcpnet-subnet-europe1",
+        "gcpnet-subnet-services",
     ]
 
     def __init__(self, chaos_controller, otlp_client):
@@ -36,7 +38,11 @@ class VpcNetworkManagerService(BaseService):
         subnet = self.SUBNETS[self._poll_idx % len(self.SUBNETS)]
         self._poll_idx += 1
         total_ips = 4094
-        used_ips = random.randint(1500, 3200) if not active_channels else random.randint(3900, 4090)
+        used_ips = (
+            random.randint(1500, 3200)
+            if not active_channels
+            else random.randint(3900, 4090)
+        )
         util_pct = round(used_ips / total_ips * 100, 1)
 
         self.emit_metric("vpc.subnet.ip_utilization", util_pct, "%")
@@ -58,7 +64,11 @@ class VpcNetworkManagerService(BaseService):
         # -- Route table check every ~10s --
         if time.time() - self._last_route_check > 10:
             network = random.choice(self.NETWORKS)
-            route_count = random.randint(80, 200) if not active_channels else random.randint(240, 250)
+            route_count = (
+                random.randint(80, 200)
+                if not active_channels
+                else random.randint(240, 250)
+            )
             peering_count = random.randint(2, 5)
             self.emit_metric("vpc.route.count", float(route_count), "routes")
             self.emit_metric("vpc.peering.count", float(peering_count), "peerings")
@@ -77,8 +87,14 @@ class VpcNetworkManagerService(BaseService):
 
         # -- Firewall rule evaluation --
         fw_rules_evaluated = random.randint(10000, 50000)
-        fw_denied = random.randint(10, 100) if not active_channels else random.randint(500, 5000)
-        self.emit_metric("vpc.firewall.rules_evaluated", float(fw_rules_evaluated), "evaluations")
+        fw_denied = (
+            random.randint(10, 100)
+            if not active_channels
+            else random.randint(500, 5000)
+        )
+        self.emit_metric(
+            "vpc.firewall.rules_evaluated", float(fw_rules_evaluated), "evaluations"
+        )
         self.emit_metric("vpc.firewall.denied_packets", float(fw_denied), "packets")
         self.emit_log(
             "INFO",

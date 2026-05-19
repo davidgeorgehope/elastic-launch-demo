@@ -15,7 +15,13 @@ class ChatServiceService(BaseService):
         super().__init__(chaos_controller, otlp_client)
         self._messages_processed = 0
         self._last_channel_report = time.time()
-        self._channels = ["global-en", "guild-12345", "match-lobby", "trade-market", "lfg-ranked"]
+        self._channels = [
+            "global-en",
+            "guild-12345",
+            "match-lobby",
+            "trade-market",
+            "lfg-ranked",
+        ]
 
     def generate_telemetry(self) -> None:
         # ── Fault injection ────────────────────────────────────
@@ -36,12 +42,18 @@ class ChatServiceService(BaseService):
             self._last_channel_report = time.time()
 
         # Metrics
-        msg_rate = random.randint(50, 400) if not active_channels else random.randint(800, 5000)
+        msg_rate = (
+            random.randint(50, 400)
+            if not active_channels
+            else random.randint(800, 5000)
+        )
         self.emit_metric("chat.message_rate", float(msg_rate), "msg/s")
         active_users = random.randint(5000, 50000)
         self.emit_metric("chat.active_users", float(active_users), "users")
         voice_channels = random.randint(200, 2000)
-        self.emit_metric("chat.voice_channels_active", float(voice_channels), "channels")
+        self.emit_metric(
+            "chat.voice_channels_active", float(voice_channels), "channels"
+        )
 
     def _emit_message_routed(self) -> None:
         self._messages_processed += 1

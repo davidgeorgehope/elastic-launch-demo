@@ -11,8 +11,10 @@ class CloudLoadBalancerService(BaseService):
     SERVICE_NAME = "cloud-load-balancer"
 
     FORWARDING_RULES = [
-        "gcpnet-fr-https-global", "gcpnet-fr-tcp-regional",
-        "gcpnet-fr-udp-internal", "gcpnet-fr-grpc-global",
+        "gcpnet-fr-https-global",
+        "gcpnet-fr-tcp-regional",
+        "gcpnet-fr-udp-internal",
+        "gcpnet-fr-grpc-global",
     ]
     BACKEND_SERVICES = ["gcpnet-bs-web", "gcpnet-bs-api", "gcpnet-bs-grpc"]
 
@@ -30,7 +32,11 @@ class CloudLoadBalancerService(BaseService):
         fr = random.choice(self.FORWARDING_RULES)
         requests_per_sec = random.randint(5000, 25000)
         latency_p50 = round(random.uniform(5.0, 25.0), 1)
-        latency_p99 = round(random.uniform(50.0, 200.0), 1) if not active_channels else round(random.uniform(500.0, 3000.0), 1)
+        latency_p99 = (
+            round(random.uniform(50.0, 200.0), 1)
+            if not active_channels
+            else round(random.uniform(500.0, 3000.0), 1)
+        )
 
         self.emit_metric("lb.requests_per_sec", float(requests_per_sec), "req/s")
         self.emit_metric("lb.latency_p50_ms", latency_p50, "ms")
@@ -52,7 +58,11 @@ class CloudLoadBalancerService(BaseService):
         # -- Backend health --
         bs = random.choice(self.BACKEND_SERVICES)
         total_backends = random.randint(6, 12)
-        healthy = total_backends if not active_channels else random.randint(1, total_backends - 2)
+        healthy = (
+            total_backends
+            if not active_channels
+            else random.randint(1, total_backends - 2)
+        )
         self.emit_metric("lb.backends_healthy", float(healthy), "instances")
         self.emit_metric("lb.backends_total", float(total_backends), "instances")
 
@@ -86,7 +96,11 @@ class CloudLoadBalancerService(BaseService):
         )
 
         # -- Error rate --
-        error_rate_5xx = round(random.uniform(0.0, 0.5), 2) if not active_channels else round(random.uniform(5.0, 25.0), 2)
+        error_rate_5xx = (
+            round(random.uniform(0.0, 0.5), 2)
+            if not active_channels
+            else round(random.uniform(5.0, 25.0), 2)
+        )
         self.emit_metric("lb.error_rate_5xx_pct", error_rate_5xx, "%")
         self.emit_log(
             "INFO",

@@ -11,9 +11,12 @@ class NetworkIntelligenceService(BaseService):
     SERVICE_NAME = "network-intelligence"
 
     TEST_NAMES = [
-        "test-vpc-to-onprem", "test-central1-to-europe1",
-        "test-nat-egress", "test-vpn-connectivity",
-        "test-interconnect-path", "test-dns-resolution",
+        "test-vpc-to-onprem",
+        "test-central1-to-europe1",
+        "test-nat-egress",
+        "test-vpn-connectivity",
+        "test-interconnect-path",
+        "test-dns-resolution",
     ]
     PROTOCOLS = ["TCP:80", "TCP:443", "ICMP", "UDP:53", "TCP:22"]
 
@@ -30,10 +33,20 @@ class NetworkIntelligenceService(BaseService):
         # -- Connectivity test results --
         test_name = random.choice(self.TEST_NAMES)
         protocol = random.choice(self.PROTOCOLS)
-        result = "REACHABLE" if not active_channels else random.choice(["UNREACHABLE", "DROPPED", "AMBIGUOUS"])
+        result = (
+            "REACHABLE"
+            if not active_channels
+            else random.choice(["UNREACHABLE", "DROPPED", "AMBIGUOUS"])
+        )
         hops_total = random.randint(5, 10)
-        hops_completed = hops_total if not active_channels else random.randint(2, hops_total - 1)
-        latency_ms = round(random.uniform(1.0, 15.0), 2) if not active_channels else round(random.uniform(100.0, 2000.0), 2)
+        hops_completed = (
+            hops_total if not active_channels else random.randint(2, hops_total - 1)
+        )
+        latency_ms = (
+            round(random.uniform(1.0, 15.0), 2)
+            if not active_channels
+            else round(random.uniform(100.0, 2000.0), 2)
+        )
 
         self.emit_metric("ni.test_latency_ms", latency_ms, "ms")
 
@@ -54,8 +67,14 @@ class NetworkIntelligenceService(BaseService):
 
         # -- Flow analytics --
         total_flows = random.randint(100000, 1000000)
-        flagged_flows = random.randint(0, 50) if not active_channels else random.randint(500, 5000)
-        anomaly_score = round(random.uniform(0.0, 0.2), 3) if not active_channels else round(random.uniform(0.6, 1.0), 3)
+        flagged_flows = (
+            random.randint(0, 50) if not active_channels else random.randint(500, 5000)
+        )
+        anomaly_score = (
+            round(random.uniform(0.0, 0.2), 3)
+            if not active_channels
+            else round(random.uniform(0.6, 1.0), 3)
+        )
 
         self.emit_metric("ni.total_flows", float(total_flows), "flows")
         self.emit_metric("ni.flagged_flows", float(flagged_flows), "flows")
@@ -91,10 +110,16 @@ class NetworkIntelligenceService(BaseService):
         )
 
         # -- Firewall insights --
-        shadowed_rules = random.randint(0, 3) if not active_channels else random.randint(5, 20)
-        overly_permissive = random.randint(0, 2) if not active_channels else random.randint(3, 15)
+        shadowed_rules = (
+            random.randint(0, 3) if not active_channels else random.randint(5, 20)
+        )
+        overly_permissive = (
+            random.randint(0, 2) if not active_channels else random.randint(3, 15)
+        )
         self.emit_metric("ni.shadowed_rules", float(shadowed_rules), "rules")
-        self.emit_metric("ni.overly_permissive_rules", float(overly_permissive), "rules")
+        self.emit_metric(
+            "ni.overly_permissive_rules", float(overly_permissive), "rules"
+        )
 
         self.emit_log(
             "INFO",

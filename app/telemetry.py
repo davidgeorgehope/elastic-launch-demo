@@ -92,7 +92,9 @@ class OTLPClient:
 
     # ── Resource helpers ───────────────────────────────────────────────
     @staticmethod
-    def build_resource(service_name: str, service_cfg: dict[str, Any], namespace: str = "demo") -> dict[str, Any]:
+    def build_resource(
+        service_name: str, service_cfg: dict[str, Any], namespace: str = "demo"
+    ) -> dict[str, Any]:
         """Build an OTLP resource object for a service."""
         language = service_cfg.get("language", "python")
         attrs = {
@@ -288,6 +290,7 @@ class OTLPClient:
         duration_ms: int = 50,
         attributes: dict[str, Any] | None = None,
         status_code: int = 1,
+        events: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         start = _now_ns()
         end = str(int(start) + duration_ms * 1_000_000)
@@ -304,7 +307,28 @@ class OTLPClient:
             span["parentSpanId"] = parent_span_id
         if attributes:
             span["attributes"] = _format_attributes(attributes)
+        if events:
+            span["events"] = events
         return span
+
+    @staticmethod
+    def build_exception_event(
+        exception_type: str,
+        message: str,
+        stacktrace: str | None = None,
+    ) -> dict[str, Any]:
+        """Build an OTel span event for an exception (powers Kibana APM Errors)."""
+        attrs = {
+            "exception.type": exception_type,
+            "exception.message": message,
+        }
+        if stacktrace:
+            attrs["exception.stacktrace"] = stacktrace
+        return {
+            "timeUnixNano": _now_ns(),
+            "name": "exception",
+            "attributes": _format_attributes(attrs),
+        }
 
     # ── Internal ───────────────────────────────────────────────────────
     def _patch_resource_data_stream(
@@ -316,7 +340,8 @@ class OTLPClient:
         res = copy.deepcopy(resource)
         # Remove elasticsearch.index so metrics/traces use default data_stream routing
         res["attributes"] = [
-            attr for attr in res.get("attributes", [])
+            attr
+            for attr in res.get("attributes", [])
             if attr["key"] != "elasticsearch.index"
         ]
         for attr in res["attributes"]:
@@ -326,9 +351,13 @@ class OTLPClient:
         return res
 
     def _send(self, url: str, payload: dict, signal_name: str) -> None:
+        if not self.endpoint:
+            return  # No endpoint configured yet; silently drop until reconfigure() is called
         if self.consecutive_failures >= self.max_failures_before_backoff:
             # Exponential backoff — skip sending
-            backoff = min(2 ** (self.consecutive_failures - self.max_failures_before_backoff), 30)
+            backoff = min(
+                2 ** (self.consecutive_failures - self.max_failures_before_backoff), 30
+            )
             if time.time() % backoff > 1:
                 return
 
@@ -357,3 +386,113 @@ class OTLPClient:
     def close(self) -> None:
         if self.client:
             self.client.close()
+
+
+class ESBulkClient:
+    """Posts plain ECS-shaped documents to an Elasticsearch data stream via `_bulk`.
+
+    Used by the raw access-log generator (which deliberately bypasses OTLP so the
+    demo can showcase non-OTel log onboarding and AI-driven Streams parsing).
+    Silently no-ops if ELASTIC_URL / ELASTIC_API_KEY are not configured.
+    """
+
+    def __init__(
+        self,
+        elastic_url: str | None = None,
+        api_key: str | None = None,
+    ):
+        from app.config import ELASTIC_URL, ELASTIC_API_KEY
+
+        self.elastic_url = (elastic_url or ELASTIC_URL or "").strip().rstrip("/")
+        self.api_key = (api_key or ELASTIC_API_KEY or "").strip()
+
+        headers = {"Content-Type": "application/x-ndjson"}
+        if self.api_key:
+            headers["Authorization"] = f"ApiKey {self.api_key}"
+        self.client = httpx.Client(headers=headers, http2=True, timeout=10)
+        self.consecutive_failures = 0
+        self.max_failures_before_backoff = 5
+
+    @property
+    def configured(self) -> bool:
+        return bool(self.elastic_url and self.api_key)
+
+    def reconfigure(self, elastic_url: str, api_key: str) -> None:
+        self.elastic_url = elastic_url.strip().rstrip("/")
+        self.api_key = api_key.strip()
+        self.consecutive_failures = 0
+        headers = {"Content-Type": "application/x-ndjson"}
+        if self.api_key:
+            headers["Authorization"] = f"ApiKey {self.api_key}"
+        if self.client:
+            try:
+                self.client.close()
+            except Exception:
+                pass
+        self.client = httpx.Client(headers=headers, http2=True, timeout=10)
+        logger.info("ESBulkClient reconfigured -> %s", self.elastic_url)
+
+    def send_bulk(self, data_stream: str, docs: list[dict[str, Any]]) -> int:
+        """POST docs to {elastic_url}/{data_stream}/_bulk using `create` actions.
+
+        Returns the number of docs the server reports as indexed (0 if request failed).
+        """
+        if not docs or not self.configured:
+            return 0
+        if self.consecutive_failures >= self.max_failures_before_backoff:
+            backoff = min(
+                2 ** (self.consecutive_failures - self.max_failures_before_backoff), 30
+            )
+            if time.time() % backoff > 1:
+                return 0
+
+        lines: list[str] = []
+        for doc in docs:
+            lines.append('{"create":{}}')
+            lines.append(json.dumps(doc, separators=(",", ":")))
+        body = "\n".join(lines) + "\n"
+
+        url = f"{self.elastic_url}/{data_stream}/_bulk"
+        try:
+            resp = self.client.post(url, content=body)
+            resp.raise_for_status()
+            self.consecutive_failures = 0
+            data = resp.json()
+            if data.get("errors"):
+                # Surface first error so misconfigured templates/mappings show up early.
+                first = next(
+                    (
+                        it["create"].get("error")
+                        for it in data.get("items", [])
+                        if it.get("create", {}).get("error")
+                    ),
+                    None,
+                )
+                if first:
+                    logger.warning("ESBulk %s partial failure: %s", data_stream, first)
+            return len(docs)
+        except httpx.RequestError as exc:
+            self.consecutive_failures += 1
+            if self.consecutive_failures <= 3:
+                logger.warning("ESBulk %s send failed (connection): %s", data_stream, exc)
+        except httpx.HTTPStatusError as exc:
+            self.consecutive_failures += 1
+            if self.consecutive_failures <= 3:
+                logger.warning(
+                    "ESBulk %s send failed (HTTP %d): %s",
+                    data_stream,
+                    exc.response.status_code,
+                    exc.response.text[:200],
+                )
+        except Exception as exc:
+            self.consecutive_failures += 1
+            if self.consecutive_failures <= 3:
+                logger.warning("ESBulk %s send failed: %s", data_stream, exc)
+        return 0
+
+    def close(self) -> None:
+        if self.client:
+            try:
+                self.client.close()
+            except Exception:
+                pass

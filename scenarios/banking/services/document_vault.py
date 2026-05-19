@@ -32,17 +32,31 @@ class DocumentVaultService(BaseService):
             self._emit_vault_summary()
             self._last_summary = time.time()
 
-        upload_rate = round(random.uniform(40, 150), 1) if not active_channels else round(random.uniform(5, 20), 1)
+        upload_rate = (
+            round(random.uniform(40, 150), 1)
+            if not active_channels
+            else round(random.uniform(5, 20), 1)
+        )
         self.emit_metric("document_vault.upload_rate", upload_rate, "docs/min")
-        self.emit_metric("document_vault.storage_used_tb", round(random.uniform(42, 48), 2), "TB")
-        self.emit_metric("document_vault.ocr_queue_depth", float(random.randint(5, 50)), "docs")
+        self.emit_metric(
+            "document_vault.storage_used_tb", round(random.uniform(42, 48), 2), "TB"
+        )
+        self.emit_metric(
+            "document_vault.ocr_queue_depth", float(random.randint(5, 50)), "docs"
+        )
 
     def _emit_document_operation(self) -> None:
         self._docs_processed += 1
-        doc_type = random.choice([
-            "CLAIM_PHOTO", "POLICY_DEC_PAGE", "ID_VERIFICATION",
-            "PROOF_OF_LOSS", "COE_VA_LOAN", "DD214_DISCHARGE",
-        ])
+        doc_type = random.choice(
+            [
+                "CLAIM_PHOTO",
+                "POLICY_DEC_PAGE",
+                "ID_VERIFICATION",
+                "PROOF_OF_LOSS",
+                "COE_VA_LOAN",
+                "DD214_DISCHARGE",
+            ]
+        )
         operation = random.choice(["UPLOAD", "RETRIEVE", "INDEX"])
         size_mb = round(random.uniform(0.2, 15.0), 1)
         self.emit_log(

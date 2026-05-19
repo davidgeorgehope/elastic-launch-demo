@@ -65,15 +65,31 @@ GC_TYPES = [
 ]
 
 # Histogram bucket boundaries for jvm.gc.duration (seconds)
-GC_HISTOGRAM_BOUNDS = [0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]
+GC_HISTOGRAM_BOUNDS = [
+    0.005,
+    0.01,
+    0.025,
+    0.05,
+    0.075,
+    0.1,
+    0.25,
+    0.5,
+    1.0,
+    2.5,
+    5.0,
+    10.0,
+]
 
 
 def _load_java_services():
     """Return list of (service_name, service_cfg) for Java services."""
     from scenarios import get_scenario
+
     scenario = get_scenario(ACTIVE_SCENARIO)
     services = scenario.services
-    return [(name, cfg) for name, cfg in services.items() if cfg.get("language") == "java"]
+    return [
+        (name, cfg) for name, cfg in services.items() if cfg.get("language") == "java"
+    ]
 
 
 def _build_resource(service_name: str, cfg: dict, namespace: str) -> dict:
@@ -117,7 +133,10 @@ class JvmState:
         # GC cumulative state: {gc_name: (count, sum_seconds)}
         self.gc_cumulative: dict[str, tuple[int, float]] = {}
         for gc_name, _ in GC_TYPES:
-            self.gc_cumulative[gc_name] = (rng.randint(500, 5000), rng.uniform(5.0, 50.0))
+            self.gc_cumulative[gc_name] = (
+                rng.randint(500, 5000),
+                rng.uniform(5.0, 50.0),
+            )
 
     def tick(self):
         rng = self._rng
@@ -136,10 +155,14 @@ class JvmState:
         for gc_name, _ in GC_TYPES:
             count, total_s = self.gc_cumulative[gc_name]
             is_young = "Young" in gc_name
-            new_events = rng.randint(1, 5) if is_young else (1 if rng.random() < 0.3 else 0)
+            new_events = (
+                rng.randint(1, 5) if is_young else (1 if rng.random() < 0.3 else 0)
+            )
             for _ in range(new_events):
                 # Young GC: 5-50ms, Old GC: 50-500ms
-                duration = rng.uniform(0.005, 0.05) if is_young else rng.uniform(0.05, 0.5)
+                duration = (
+                    rng.uniform(0.005, 0.05) if is_young else rng.uniform(0.05, 0.5)
+                )
                 total_s += duration
                 count += 1
             self.gc_cumulative[gc_name] = (count, total_s)
@@ -171,7 +194,9 @@ def _histogram(
         bucket_counts[idx] += 1
     dp: dict = {
         "timeUnixNano": _now_ns(),
-        "startTimeUnixNano": str(int(time.time() * 1_000_000_000) - 600_000_000_000),  # 10 min window
+        "startTimeUnixNano": str(
+            int(time.time() * 1_000_000_000) - 600_000_000_000
+        ),  # 10 min window
         "count": count,
         "sum": sum_val,
         "bucketCounts": bucket_counts,
@@ -210,9 +235,13 @@ def _generate_metrics(state: JvmState, rng: random.Random) -> list:
         after_gc_bytes = used_bytes * rng.uniform(0.3, 0.7)
 
         metrics.append(_gauge("jvm.memory.used", "By", used_bytes, pool_attrs))
-        metrics.append(_gauge("jvm.memory.committed", "By", committed_bytes, pool_attrs))
+        metrics.append(
+            _gauge("jvm.memory.committed", "By", committed_bytes, pool_attrs)
+        )
         metrics.append(_gauge("jvm.memory.limit", "By", limit_bytes, pool_attrs))
-        metrics.append(_gauge("jvm.memory.used_after_last_gc", "By", after_gc_bytes, pool_attrs))
+        metrics.append(
+            _gauge("jvm.memory.used_after_last_gc", "By", after_gc_bytes, pool_attrs)
+        )
 
     # ── Threads ───────────────────────────────────────────────────────
     for thread_state in THREAD_STATES:
@@ -225,71 +254,104 @@ def _generate_metrics(state: JvmState, rng: random.Random) -> list:
                 count = rng.randint(3, 15) if daemon else rng.randint(1, 4)
             else:  # blocked
                 count = rng.randint(0, 2) if daemon else rng.randint(0, 1)
-            metrics.append(_gauge(
-                "jvm.thread.count", "{thread}", float(count),
-                {"jvm.thread.state": thread_state, "jvm.thread.daemon": daemon},
-            ))
+            metrics.append(
+                _gauge(
+                    "jvm.thread.count",
+                    "{thread}",
+                    float(count),
+                    {"jvm.thread.state": thread_state, "jvm.thread.daemon": daemon},
+                )
+            )
 
     # ── Classes ───────────────────────────────────────────────────────
     current_classes = state.classes_loaded_total - state.classes_unloaded_total
     metrics.append(_gauge("jvm.class.count", "{class}", float(current_classes)))
-    metrics.append(_gauge("jvm.class.loaded", "{class}", float(state.classes_loaded_total)))
-    metrics.append(_gauge("jvm.class.unloaded", "{class}", float(state.classes_unloaded_total)))
+    metrics.append(
+        _gauge("jvm.class.loaded", "{class}", float(state.classes_loaded_total))
+    )
+    metrics.append(
+        _gauge("jvm.class.unloaded", "{class}", float(state.classes_unloaded_total))
+    )
 
     # ── GC Duration (histogram) ──────────────────────────────────────
     for gc_name, gc_action in GC_TYPES:
         count, total_s = state.gc_cumulative[gc_name]
         gc_attrs = {"jvm.gc.name": gc_name, "jvm.gc.action": gc_action}
-        metrics.append(_histogram(
-            "jvm.gc.duration", "s", count, total_s,
-            GC_HISTOGRAM_BOUNDS, rng, gc_attrs,
-        ))
+        metrics.append(
+            _histogram(
+                "jvm.gc.duration",
+                "s",
+                count,
+                total_s,
+                GC_HISTOGRAM_BOUNDS,
+                rng,
+                gc_attrs,
+            )
+        )
 
     return metrics
 
 
-def run(client: OTLPClient, stop_event: threading.Event, scenario_data: dict | None = None) -> None:
+def run(
+    client: OTLPClient, stop_event: threading.Event, scenario_data: dict | None = None
+) -> None:
     """Run JVM metrics generator loop until stop_event is set."""
     rng = random.Random()
 
     if scenario_data:
         ns = scenario_data["namespace"]
         services = scenario_data["services"]
-        java_services = [(name, cfg) for name, cfg in services.items() if cfg.get("language") == "java"]
+        java_services = [
+            (name, cfg)
+            for name, cfg in services.items()
+            if cfg.get("language") == "java"
+        ]
     else:
         ns = NAMESPACE
         java_services = _load_java_services()
 
     if not java_services:
-        logger.info("No Java services found in active scenario — JVM metrics generator idle")
+        logger.info(
+            "No Java services found in active scenario — JVM metrics generator idle"
+        )
         return
 
     resources = {name: _build_resource(name, cfg, ns) for name, cfg in java_services}
     states = {name: JvmState(rng) for name, _ in java_services}
 
-    logger.info("JVM metrics generator started (interval=%ds, services=%s)",
-                METRICS_INTERVAL, [name for name, _ in java_services])
+    logger.info(
+        "JVM metrics generator started (interval=%ds, services=%s)",
+        METRICS_INTERVAL,
+        [name for name, _ in java_services],
+    )
 
     scrape_count = 0
     while not stop_event.is_set():
         resource_metrics = []
         for name, _ in java_services:
             metrics = _generate_metrics(states[name], rng)
-            resource_metrics.append({
-                "resource": resources[name],
-                "scopeMetrics": [{
-                    "scope": {"name": SCOPE_NAME, "version": SCOPE_VERSION},
-                    "metrics": metrics,
-                }],
-            })
+            resource_metrics.append(
+                {
+                    "resource": resources[name],
+                    "scopeMetrics": [
+                        {
+                            "scope": {"name": SCOPE_NAME, "version": SCOPE_VERSION},
+                            "metrics": metrics,
+                        }
+                    ],
+                }
+            )
 
         payload = {"resourceMetrics": resource_metrics}
         client._send(f"{client.endpoint}/v1/metrics", payload, "jvm-metrics")
 
         scrape_count += 1
         if scrape_count % 6 == 0:
-            logger.info("JVM metrics scrape %d complete (%d services)",
-                        scrape_count, len(java_services))
+            logger.info(
+                "JVM metrics scrape %d complete (%d services)",
+                scrape_count,
+                len(java_services),
+            )
 
         stop_event.wait(METRICS_INTERVAL)
 
@@ -297,7 +359,9 @@ def run(client: OTLPClient, stop_event: threading.Event, scenario_data: dict | N
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
+    )
     client = OTLPClient()
     stop_event = threading.Event()
     signal.signal(signal.SIGINT, lambda *_: stop_event.set())

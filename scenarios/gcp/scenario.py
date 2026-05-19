@@ -19,6 +19,10 @@ class GCPScenario(BaseScenario):
         return "gcp"
 
     @property
+    def scenario_icon(self) -> str:
+        return "☁️"
+
+    @property
     def scenario_name(self) -> str:
         return "Google Cloud Network Operations"
 
@@ -34,6 +38,99 @@ class GCPScenario(BaseScenario):
     @property
     def namespace(self) -> str:
         return "gcpnet"
+
+    @property
+    def sort_order(self) -> int:
+        return 9
+
+    @property
+    def raw_log_profile(self) -> dict[str, Any]:
+        return {
+            "service_name": "cloud-gateway",
+            "user_id_prefix": "usr",
+            "tier_field": "support_tier",
+            "tier_values": [("basic", 60), ("standard", 30), ("premium", 10)],
+            "country_weights": {"US": 35, "GB": 12, "DE": 10, "IN": 12, "JP": 8, "BR": 8, "FR": 8, "AU": 7},
+            "methods": ["GET", "POST", "PUT", "DELETE"],
+            "paths": [
+                "/v1/projects/{id}/instances", "/v1/projects/{id}/buckets",
+                "/v1/projects/{id}/iam", "/v1/projects/{id}/networks",
+                "/v1/projects/{id}/disks", "/v1/projects/{id}/operations",
+                "/login", "/health",
+            ],
+            "change_point_path": "/v1/projects/{id}/instances",
+        }
+
+    @property
+    def executive_kpi_emitter_service_name(self) -> str:
+        return "cloud-cdn-service"
+
+    @property
+    def executive_dashboard_intro(self) -> str:
+        return (
+            "**GCP network KPIs** — CDN delivery, capacity & security, SLO compliance, "
+            "and cloud economics (synthetic `business.*` from `cloud-cdn-service`)."
+        )
+
+    @property
+    def executive_kpi_sections(self) -> list[dict]:
+        return [
+            {
+                "header": "**Delivery** — cache hit rate, requests, egress, offload, latency, and errors",
+                "specs": [
+                    ("CDN cache hit rate (%)", "metrics.business.cdn_cache_hit_rate_pct"),
+                    ("Requests / min", "metrics.business.requests_per_min"),
+                    ("Bytes egress (GiB/min)", "metrics.business.bytes_egress_gib_per_min"),
+                    ("Origin offload (%)", "metrics.business.origin_offload_pct"),
+                    ("Edge latency P50 (ms)", "metrics.business.edge_latency_p50_ms"),
+                    ("CDN error rate (%)", "metrics.business.cdn_error_rate_pct"),
+                ],
+            },
+            {
+                "header": "**Capacity & security** — bandwidth, interconnect, Cloud Armor, VPC, NAT, LB",
+                "specs": [
+                    ("Peak bandwidth utilization (%)", "metrics.business.peak_bandwidth_utilization_pct"),
+                    ("Interconnect utilization (%)", "metrics.business.interconnect_utilization_pct"),
+                    ("Cloud Armor blocks / min", "metrics.business.cloud_armor_blocks_per_min"),
+                    ("VPC flow anomalies / min", "metrics.business.vpc_flow_anomalies_per_min"),
+                    ("NAT port exhaustion (%)", "metrics.business.nat_port_exhaustion_rate_pct"),
+                    ("Load balancer RPS", "metrics.business.load_balancer_rps"),
+                ],
+            },
+            {
+                "header": "**SLO & reliability** — uptime, API success, SLA compliance, MTTD, MTTR",
+                "specs": [
+                    ("Uptime (%)", "metrics.business.uptime_pct"),
+                    ("API success rate (%)", "metrics.business.api_success_rate_pct"),
+                    ("Network SLA compliance (%)", "metrics.business.network_sla_compliance_pct"),
+                    ("Incident MTTD (min)", "metrics.business.incident_mttd_min"),
+                    ("Incident MTTR (min)", "metrics.business.incident_mttr_min"),
+                    ("Availability index (0–100)", "metrics.business.availability_index_0_100"),
+                ],
+            },
+            {
+                "header": "**Commercial** — spend, committed use, cost efficiency, carbon, and SLA breaches",
+                "specs": [
+                    ("Cloud spend (USD/min)", "metrics.business.cloud_spend_usd_per_min"),
+                    ("Committed use utilization (%)", "metrics.business.committed_use_discount_utilization_pct"),
+                    ("Cost / M requests (USD)", "metrics.business.cost_per_million_requests_usd"),
+                    ("Resource efficiency (%)", "metrics.business.resource_efficiency_pct"),
+                    ("Carbon intensity (gCO2/TiB)", "metrics.business.carbon_intensity_gco2_per_tib"),
+                    ("Customer SLA breaches", "metrics.business.customer_sla_breach_count"),
+                ],
+            },
+        ]
+
+    @property
+    def executive_trend_charts(self) -> list[dict]:
+        return [
+            {"title": "CDN cache hit rate", "field": "metrics.business.cdn_cache_hit_rate_pct", "y_label": "%"},
+            {"title": "Requests / min", "field": "metrics.business.requests_per_min", "y_label": "requests/min"},
+            {"title": "Bytes egress (GiB/min)", "field": "metrics.business.bytes_egress_gib_per_min", "y_label": "GiB/min"},
+            {"title": "Cloud Armor blocks / min", "field": "metrics.business.cloud_armor_blocks_per_min", "y_label": "blocks/min"},
+            {"title": "Cloud spend (USD/min)", "field": "metrics.business.cloud_spend_usd_per_min", "y_label": "USD/min"},
+            {"title": "Uptime (%)", "field": "metrics.business.uptime_pct", "y_label": "%"},
+        ]
 
     # ── Services ──────────────────────────────────────────────────────
 
@@ -1277,9 +1374,7 @@ class GCPScenario(BaseScenario):
             status_info="#4285F4",          # Google Blue
             font_family="'Google Sans', 'Inter', system-ui, sans-serif",
             grid_background=True,
-            dashboard_title="Network Operations Center",
             chaos_title="Incident Simulator",
-            landing_title="Google Cloud Network Operations",
         )
 
     @property

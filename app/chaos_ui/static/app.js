@@ -14,6 +14,7 @@
     const SESSION_KEY = ns + '_chaos_session_id';
     let mySessionId = null;
     let myOwnedChannels = new Set();
+    let myEmail = ''; // auto-detected email (from proxy/env), used as session fallback
 
     function getSessionId() {
         if (mySessionId) return mySessionId;
@@ -47,12 +48,14 @@
         fetchChannels();
         validateSession();
         setInterval(fetchStatus, 2000);
-        // Auto-populate email from X-Forwarded-User header
+        // Auto-populate email from X-Forwarded-User header; re-validate session with email fallback
         fetch('/api/user/info')
             .then(r => r.json())
             .then(data => {
                 if (data.email) {
+                    myEmail = data.email;
                     document.getElementById('user-email').value = data.email;
+                    validateSession(); // re-run now that we have a detected email
                 }
             })
             .catch(() => { /* ignore */ });
@@ -60,13 +63,15 @@
 
     function validateSession() {
         const sid = getSessionId();
-        if (!sid) {
+        if (!sid && !myEmail) {
             myOwnedChannels.clear();
             updateSpikesLock();
             return;
         }
         const sep = qs ? '&' : '?';
-        fetch('/api/chaos/session/validate' + qs + sep + 'session_id=' + encodeURIComponent(sid))
+        let url = '/api/chaos/session/validate' + qs + sep + 'session_id=' + encodeURIComponent(sid || '');
+        if (myEmail) url += '&user_email=' + encodeURIComponent(myEmail);
+        fetch(url)
             .then(r => r.json())
             .then(data => {
                 if (data.valid && data.channels && data.channels.length > 0) {
@@ -100,12 +105,15 @@
                 if (selectedChannel && data[selectedChannel]) {
                     updateChannelInfo(selectedChannel, data[selectedChannel]);
                 }
-                // Rebuild owned channels set from live data
+                // Rebuild owned channels set from live data (session or email match)
                 const sid = getSessionId();
-                if (sid) {
+                if (sid || myEmail) {
                     const newOwned = new Set();
                     for (const [chId, ch] of Object.entries(data)) {
-                        if (ch.state === 'ACTIVE' && ch.session_id === sid) {
+                        if (ch.state !== 'ACTIVE') continue;
+                        const sessionMatch = sid && ch.session_id === sid;
+                        const emailMatch = myEmail && ch.user_email && ch.user_email === myEmail;
+                        if (sessionMatch || emailMatch) {
                             newOwned.add(parseInt(chId));
                         }
                     }
@@ -127,7 +135,8 @@
         for (const id of sortedIds) {
             const opt = document.createElement('option');
             opt.value = id;
-            opt.textContent = `CH-${String(id).padStart(2, '0')}: ${data[id].name}`;
+            const modeLabel = id >= 16 ? ' (Auto-Remediate)' : ' (HITL)';
+            opt.textContent = `CH-${String(id).padStart(2, '0')}: ${data[id].name}${modeLabel}`;
             select.appendChild(opt);
         }
     }
@@ -172,9 +181,9 @@
         // INJECT: always enabled for STANDBY channels
         btnInject.disabled = ch.state === 'ACTIVE';
 
-        // RESOLVE: only enabled if channel is ACTIVE and we own it
+        // RESOLVE: only enabled if channel is ACTIVE and we own it (by session or email)
         const sid = getSessionId();
-        const isMine = sid && ch.session_id === sid;
+        const isMine = (sid && ch.session_id === sid) || (myEmail && ch.user_email && ch.user_email === myEmail);
         btnResolve.disabled = ch.state !== 'ACTIVE' || !isMine;
     }
 
@@ -222,6 +231,7 @@
             body: JSON.stringify({
                 channel: selectedChannel,
                 session_id: sid || '',
+                user_email: myEmail || undefined,
                 deployment_id: deployId || undefined,
             }),
         })
@@ -253,6 +263,7 @@
             body: JSON.stringify({
                 channel: channel,
                 session_id: sid || '',
+                user_email: myEmail || undefined,
                 deployment_id: deployId || undefined,
             }),
         })
@@ -288,33 +299,40 @@
         if (activeIds.length === 0) {
             container.innerHTML = '<div class="no-active">No active faults</div>';
         } else {
-            const MAX_DURATION = 3600; // 1 hour, matches backend
+            const MAX_DURATION = window.CHANNEL_TIMEOUT || 3600;
             container.innerHTML = activeIds.map(id => {
                 const ch = data[id];
                 const elapsed = ch.triggered_at ? Math.round((Date.now() / 1000) - ch.triggered_at) : 0;
-                const mins = Math.floor(elapsed / 60);
+                const hrs = Math.floor(elapsed / 3600);
+                const mins = Math.floor((elapsed % 3600) / 60);
                 const secs = elapsed % 60;
                 const remaining = Math.max(0, MAX_DURATION - elapsed);
-                const remMins = Math.floor(remaining / 60);
+                const remHrs = Math.floor(remaining / 3600);
+                const remMins = Math.floor((remaining % 3600) / 60);
                 const remSecs = remaining % 60;
-                const isMine = sid && ch.session_id === sid;
+                const isMine = (sid && ch.session_id === sid) || (myEmail && ch.user_email && ch.user_email === myEmail);
                 const ownerTag = !isMine && ch.session_id
                     ? '<div class="ac-owner-tag">CONTROLLED BY ANOTHER OPERATOR</div>'
                     : '';
                 const resolveBtn = isMine
                     ? `<button class="ac-resolve-btn" onclick="resolveChannel(${id})">RESOLVE</button>`
                     : `<button class="ac-resolve-btn" disabled>RESOLVE</button>`;
+                const kibanaBase = (window.KIBANA_URL || '').replace(/\/$/, '');
+                const alertsUrl = kibanaBase + `/app/observability/alerts?_a=(controlConfigs:!((display_settings:(hide_action_bar:!t),exclude:!f,exists_selected:!f,field_name:kibana.alert.status,selected_options:!(active),title:Status),(display_settings:(hide_action_bar:!f),exclude:!f,exists_selected:!f,field_name:kibana.alert.rule.name,selected_options:!(),title:Rule),(display_settings:(hide_action_bar:!f),exclude:!f,exists_selected:!f,field_name:kibana.alert.group.value,selected_options:!(),title:Group),(display_settings:(hide_action_bar:!f),exclude:!f,exists_selected:!f,field_name:tags,selected_options:!(),title:Tags)),filters:!(),groupings:!(none),kuery:%27%27,rangeFrom:now-2m,rangeTo:now)`;
+                const casesUrl = kibanaBase + `/app/observability/cases?cases=(from:now-30d,page:1,perPage:10,sortField:createdAt,sortOrder:desc,to:now)`;
+                const kibanaLinks = `<a class="ac-kibana-btn ac-btn-alerts" href="${alertsUrl}" target="_blank" rel="noopener">ALERTS</a>` +
+                    `<a class="ac-kibana-btn ac-btn-cases" href="${casesUrl}" target="_blank" rel="noopener">CASES</a>`;
                 return `
                     <div class="active-channel-card">
                         <div class="ac-header">
                             <span class="ac-channel">CH-${String(id).padStart(2, '0')}</span>
-                            <span class="ac-time">${mins}m ${secs}s ago</span>
+                            <span class="ac-time">${hrs}h ${mins}m ${secs}s ago</span>
                         </div>
                         <div class="ac-name">${ch.name}</div>
                         <div class="ac-subsystem">${ch.subsystem} | ${(ch.affected_services || []).join(', ')}</div>
-                        <div class="ac-expiry">Auto-expires in ${remMins}m ${remSecs}s</div>
+                        <div class="ac-expiry">Auto-expires in ${remHrs}h ${remMins}m ${remSecs}s</div>
                         ${ownerTag}
-                        ${resolveBtn}
+                        <div class="ac-action-row">${resolveBtn}${kibanaLinks}</div>
                     </div>
                 `;
             }).join('');

@@ -26,7 +26,11 @@ class CloudArmorWafService(BaseService):
         # -- Request evaluation --
         policy = random.choice(self.POLICIES)
         total_requests = random.randint(10000, 50000)
-        blocked_requests = random.randint(10, 100) if not active_channels else random.randint(500, 5000)
+        blocked_requests = (
+            random.randint(10, 100)
+            if not active_channels
+            else random.randint(500, 5000)
+        )
         allowed_requests = total_requests - blocked_requests
 
         self.emit_metric("armor.requests_total", float(total_requests), "requests")
@@ -47,8 +51,14 @@ class CloudArmorWafService(BaseService):
         )
 
         # -- DDoS metrics --
-        ddos_events = random.randint(0, 1) if not active_channels else random.randint(3, 10)
-        attack_volume_mbps = round(random.uniform(0.0, 50.0), 1) if not active_channels else round(random.uniform(5000.0, 120000.0), 1)
+        ddos_events = (
+            random.randint(0, 1) if not active_channels else random.randint(3, 10)
+        )
+        attack_volume_mbps = (
+            round(random.uniform(0.0, 50.0), 1)
+            if not active_channels
+            else round(random.uniform(5000.0, 120000.0), 1)
+        )
         self.emit_metric("armor.ddos_events", float(ddos_events), "events")
         self.emit_metric("armor.attack_volume_mbps", attack_volume_mbps, "Mbps")
 
@@ -65,7 +75,9 @@ class CloudArmorWafService(BaseService):
 
         # -- WAF rule match distribution --
         category = random.choice(self.RULE_CATEGORIES)
-        matches = random.randint(0, 20) if not active_channels else random.randint(100, 1000)
+        matches = (
+            random.randint(0, 20) if not active_channels else random.randint(100, 1000)
+        )
         self.emit_metric("armor.rule_matches", float(matches), "matches")
 
         self.emit_log(
@@ -80,7 +92,9 @@ class CloudArmorWafService(BaseService):
         )
 
         # -- Rate limiting --
-        rate_limited = random.randint(0, 10) if not active_channels else random.randint(100, 2000)
+        rate_limited = (
+            random.randint(0, 10) if not active_channels else random.randint(100, 2000)
+        )
         self.emit_metric("armor.rate_limited", float(rate_limited), "requests")
         self.emit_log(
             "INFO",

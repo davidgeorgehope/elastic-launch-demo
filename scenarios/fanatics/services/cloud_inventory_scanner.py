@@ -25,12 +25,24 @@ class CloudInventoryScannerService(BaseService):
         # -- Per-cloud scanning --
         for provider in self.CLOUD_PROVIDERS:
             resources_scanned = random.randint(500, 2500)
-            orphaned = random.randint(0, 3) if not active_channels else random.randint(5, 25)
+            orphaned = (
+                random.randint(0, 3) if not active_channels else random.randint(5, 25)
+            )
             compliance_pct = round(random.uniform(97.0, 100.0), 1)
 
-            self.emit_metric(f"cloud_inventory.{provider}.resources_scanned", float(resources_scanned), "resources")
-            self.emit_metric(f"cloud_inventory.{provider}.orphaned_count", float(orphaned), "resources")
-            self.emit_metric(f"cloud_inventory.{provider}.compliance_pct", compliance_pct, "%")
+            self.emit_metric(
+                f"cloud_inventory.{provider}.resources_scanned",
+                float(resources_scanned),
+                "resources",
+            )
+            self.emit_metric(
+                f"cloud_inventory.{provider}.orphaned_count",
+                float(orphaned),
+                "resources",
+            )
+            self.emit_metric(
+                f"cloud_inventory.{provider}.compliance_pct", compliance_pct, "%"
+            )
 
             self.emit_log(
                 "INFO",

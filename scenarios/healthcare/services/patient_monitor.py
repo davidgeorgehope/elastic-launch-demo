@@ -37,10 +37,18 @@ class PatientMonitorService(BaseService):
 
         # Metrics
         self._readings_total += 1
-        self.emit_metric("patient_monitor.readings_total", float(self._readings_total), "readings")
-        self.emit_metric("patient_monitor.active_devices", float(random.randint(60, 150)), "devices")
-        alert_rate = random.randint(1, 8) if not active_channels else random.randint(30, 120)
-        self.emit_metric("patient_monitor.alerts_per_minute", float(alert_rate), "alerts/min")
+        self.emit_metric(
+            "patient_monitor.readings_total", float(self._readings_total), "readings"
+        )
+        self.emit_metric(
+            "patient_monitor.active_devices", float(random.randint(60, 150)), "devices"
+        )
+        alert_rate = (
+            random.randint(1, 8) if not active_channels else random.randint(30, 120)
+        )
+        self.emit_metric(
+            "patient_monitor.alerts_per_minute", float(alert_rate), "alerts/min"
+        )
 
     def _emit_vital_reading(self) -> None:
         unit = random.choice(self._units)

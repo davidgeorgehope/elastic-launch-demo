@@ -18,7 +18,7 @@ steps:
     type: elasticsearch.esql.query
     with:
       query: >
-        FROM logs.otel,logs.otel.*
+        FROM logs.otel.__NS__,logs.otel.__NS__.*
         | WHERE @timestamp >= NOW() - 24 HOURS
           AND severity_text == "ERROR"
         | STATS total = COUNT(*)
@@ -28,7 +28,7 @@ steps:
     type: elasticsearch.esql.query
     with:
       query: >
-        FROM logs.otel,logs.otel.*
+        FROM logs.otel.__NS__,logs.otel.__NS__.*
         | WHERE @timestamp >= NOW() - 24 HOURS
           AND severity_text == "WARN"
         | STATS total = COUNT(*)

@@ -32,10 +32,20 @@ class FraudSentinelService(BaseService):
             self._emit_fraud_summary()
             self._last_summary = time.time()
 
-        score = round(random.uniform(0, 25), 1) if not active_channels else round(random.uniform(40, 90), 1)
+        score = (
+            round(random.uniform(0, 25), 1)
+            if not active_channels
+            else round(random.uniform(40, 90), 1)
+        )
         self.emit_metric("fraud_sentinel.avg_risk_score", score, "score")
-        self.emit_metric("fraud_sentinel.scans_per_sec", round(random.uniform(200, 800), 1), "scans/s")
-        self.emit_metric("fraud_sentinel.model_latency_ms", round(random.uniform(8, 45), 1), "ms")
+        self.emit_metric(
+            "fraud_sentinel.scans_per_sec",
+            round(random.uniform(200, 800), 1),
+            "scans/s",
+        )
+        self.emit_metric(
+            "fraud_sentinel.model_latency_ms", round(random.uniform(8, 45), 1), "ms"
+        )
 
     def _emit_transaction_scan(self) -> None:
         self._scans_completed += 1

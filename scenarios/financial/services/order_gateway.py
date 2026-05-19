@@ -16,8 +16,11 @@ class OrderGatewayService(BaseService):
         self._order_count = 0
         self._last_throughput_report = time.time()
         self._fix_sessions = [
-            "FIX-NYSE-01", "FIX-NSDQ-01", "FIX-CBOE-01",
-            "FIX-CME-01", "FIX-BATS-01",
+            "FIX-NYSE-01",
+            "FIX-NSDQ-01",
+            "FIX-CBOE-01",
+            "FIX-CME-01",
+            "FIX-BATS-01",
         ]
 
     def generate_telemetry(self) -> None:
@@ -49,7 +52,11 @@ class OrderGatewayService(BaseService):
             float(len(self._fix_sessions)),
             "sessions",
         )
-        reject_rate = round(random.uniform(0.1, 2.5), 2) if not active_channels else round(random.uniform(8.0, 25.0), 2)
+        reject_rate = (
+            round(random.uniform(0.1, 2.5), 2)
+            if not active_channels
+            else round(random.uniform(8.0, 25.0), 2)
+        )
         self.emit_metric(
             "order_gateway.reject_rate",
             reject_rate,

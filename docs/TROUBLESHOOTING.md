@@ -29,28 +29,28 @@ Common issues and solutions for the Elastic Observability Demo Platform.
 ps aux | grep uvicorn
 
 # Try starting manually to see errors
-sudo python3 -m uvicorn app.main:app --host 0.0.0.0 --port 80
+python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8080
 ```
 
 **Common causes:**
 
 | Cause | Solution |
 |-------|----------|
-| Port 80 already in use | Kill the existing process: `sudo kill $(sudo lsof -t -i:80)` |
+| Port 8080 already in use | Kill the existing process: `kill $(lsof -t -i:8080)` |
 | Missing Python dependency | Run `pip install -r requirements.txt` |
 | Missing credentials | Deploy a scenario via the web UI to configure Elastic credentials |
 | Import error | Check for syntax errors in app/ or scenarios/ |
 
 ### Health check fails
 
-**Symptoms:** `curl http://localhost/health` returns connection refused.
+**Symptoms:** `curl http://localhost:8080/health` returns connection refused.
 
 ```bash
 # Is the process running?
 ps aux | grep uvicorn
 
-# Is it listening on port 80?
-sudo ss -tlnp | grep :80
+# Is it listening on port 8080?
+ss -tlnp | grep :8080
 ```
 
 ---
@@ -306,10 +306,10 @@ The app does not have hot-reload. After code changes:
 
 ```bash
 # Find and kill the existing process
-sudo kill $(sudo lsof -t -i:80)
+kill $(lsof -t -i:8080)
 
 # Restart
-sudo nohup python3 -m uvicorn app.main:app --host 0.0.0.0 --port 80 &
+nohup python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8080 &
 ```
 
 ### App process dies unexpectedly

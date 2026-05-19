@@ -1,11 +1,14 @@
 version: "1"
-name: __SCENARIO_NAME__ Significant Event Notification
+name: __SCENARIO_NAME__ Significant Event Notification (Human in the Loop)
 description: >
-  Notify launch operations team when a significant event is detected.
-  Triggered by alert rules — uses event.rule.tags[1] for the error_type
-  search, extracts user_email from event_name, sends email notification
-  immediately, then runs AI root cause analysis and creates a case with
-  RCA findings.
+  Notify launch operations team when a significant event is detected on a
+  HITL channel (1-15). Triggered by alert rules — uses event.rule.tags[1] for
+  the error_type search, extracts user_email from event_name, sends email
+  notification immediately, runs AI root cause analysis and creates a case,
+  then asks the agent to propose remediation. The agent invokes the
+  remediation_action workflow tool which pauses at a waitForInput step;
+  Agent Builder surfaces the approval prompt inside the conversation for the
+  operator to approve or deny.
 
 triggers:
   - type: alert
@@ -15,14 +18,14 @@ steps:
     type: elasticsearch.esql.query
     with:
       query: >
-        FROM logs.otel,logs.otel.* | WHERE KQL("body.text: \"{{ event.rule.tags[1] }}\" AND severity_text: \"ERROR\"") | KEEP event_name
+        FROM logs.otel.__NS__,logs.otel.__NS__.* | WHERE KQL("body.text: \"{{ event.rule.tags[1] }}\" AND severity_text: \"ERROR\"") | KEEP event_name
       format: json
 
   - name: count_errors
     type: elasticsearch.esql.query
     with:
       query: >
-        FROM logs.otel,logs.otel.*
+        FROM logs.otel.__NS__,logs.otel.__NS__.*
         | WHERE @timestamp > NOW() - 15 MINUTES AND severity_text == "ERROR"
         | STATS total_errors = COUNT(*)
       format: json
@@ -36,6 +39,7 @@ steps:
   - name: send_notification
     type: email
     connector-id: Elastic-Cloud-SMTP
+    if: "${{ steps.parse_event_meta.output.var[0].event_meta.user_email != '' and steps.parse_event_meta.output.var[0].event_meta.user_email != null }}"
     with:
       to:
         - "{{ steps.parse_event_meta.output.var[0].event_meta.user_email }}"
@@ -47,31 +51,39 @@ steps:
         Error Type: {{ event.rule.tags[1] }}
         Total errors (15m): {{ steps.count_errors.output.values[0][0] }}
 
-        An AI root cause analysis is underway — a case with detailed findings will be created shortly.
+        An AI root cause analysis is underway. A case will be created with the
+        agent's findings and a proposed remediation. Approve or deny the
+        remediation in the Agent Builder conversation linked from the case.
 
-        Open Kibana to investigate and request remediation.
+        Open Kibana to investigate:
+        __KIBANA_URL__/app/dashboards#/view/__NS__-exec-dashboard
 
   - name: run_rca
-    type: ai.agent
-    agent-id: __AGENT_ID__
-    create-conversation: true
+    type: kibana.request
     with:
-      message: >
-        Significant event detected: {{ event.rule.name }}.
-        Error type: {{ event.rule.tags[1] }}.
-        Total errors in last 15 minutes: {{ steps.count_errors.output.values[0][0] }}.
-        Perform a root cause analysis only. Search logs for this error type,
-        identify affected services, trace the fault propagation, and provide
-        your structured RCA report. Do NOT execute any remediation actions.
+      method: POST
+      path: "/api/agent_builder/converse"
+      headers:
+        kbn-xsrf: "true"
+      body:
+        agent_id: __AGENT_ID__
+        input: >
+          Significant event detected: {{ event.rule.name }}.
+          Error type: {{ event.rule.tags[1] }}.
+          Total errors in last 15 minutes: {{ steps.count_errors.output.values[0][0] }}.
+          Perform a root cause analysis only. Search logs for this error type,
+          identify affected services, trace the fault propagation, and provide
+          your structured RCA report. Do NOT execute any remediation actions.
+    timeout: 10m
 
   - name: create_case
     type: kibana.createCaseDefaultSpace
     with:
-      title: "__SCENARIO_NAME__ RCA: {{ event.rule.name }}"
+      title: "{{ event.rule.name }}"
       description: |
-       [View Full Conversation]({{ kibanaUrl }}/app/agent_builder/conversations/{{ steps.run_rca.output.conversation_id }})
+       [View Full Conversation](/app/agent_builder/conversations/{{ steps.run_rca.output.conversation_id }})
 
-       {{ steps.run_rca.output.message }}
+       {{ steps.run_rca.output.response.message }}
       tags:
         - "__NS__"
         - "{{ event.rule.tags[1] }}"
@@ -85,6 +97,50 @@ steps:
         type: ".none"
         fields: null
 
+  - name: attach_alert_to_case
+    type: kibana.request
+    with:
+      method: POST
+      path: "/api/cases/{{ steps.create_case.output.id }}/comments"
+      headers:
+        kbn-xsrf: "true"
+      body:
+        type: "alert"
+        alertId: "{{ event.alerts[0]._id }}"
+        index: "{{ event.alerts[0]._index }}"
+        rule:
+          id: "{{ event.rule.id }}"
+          name: "{{ event.rule.name }}"
+        owner: "observability"
+
+  - name: request_remediation
+    type: kibana.request
+    with:
+      method: POST
+      path: "/api/agent_builder/converse"
+      headers:
+        kbn-xsrf: "true"
+      body:
+        agent_id: __AGENT_ID__
+        conversation_id: "{{ steps.run_rca.output.conversation_id }}"
+        input: >
+          Case {{ steps.create_case.output.id }} has been opened. Propose and
+          execute the appropriate remediation using the remediation_action
+          workflow tool with these parameters:
+          - action_type: {{ event.rule.tags[2] }}
+          - channel: {{ event.rule.tags[3] }}
+          - error_type: {{ event.rule.tags[1] }}
+          - case_id: {{ steps.create_case.output.id }}
+          - dry_run: false
+          - requires_approval: true
+          - justification: Operator approval requested via Agent Builder
+
+          The tool will pause for operator approval before queueing the
+          remediation. If the operator denies, add a brief comment to the case
+          noting the denial — do not retry. If the operator approves, the tool
+          will queue the remediation and close the case automatically.
+    timeout: 30m
+
   - name: audit_log
     type: elasticsearch.index
     with:
@@ -94,5 +150,7 @@ steps:
         error_type: "{{ event.rule.tags[1] }}"
         total_errors: "{{ steps.count_errors.output.values[0][0] }}"
         rca_case_created: true
+        auto_remediated: false
+        approval_requested: true
         mission_id: "__SCENARIO_NAME__"
       refresh: wait_for

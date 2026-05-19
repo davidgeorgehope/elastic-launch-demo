@@ -27,7 +27,9 @@ logger = logging.getLogger("nginx-metrics-generator")
 
 METRICS_INTERVAL = int(os.getenv("NGINX_METRICS_INTERVAL", "10"))
 
-SCOPE_NAME = "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/nginxreceiver"
+SCOPE_NAME = (
+    "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/nginxreceiver"
+)
 SCOPE_VERSION = "0.115.0"
 
 # Two nginx instances across different hosts (derived from active scenario)
@@ -89,11 +91,13 @@ def _build_cumulative_sum(name: str, unit: str, value: int) -> dict:
         "name": name,
         "unit": unit,
         "sum": {
-            "dataPoints": [{
-                "startTimeUnixNano": str(int(now) - 60_000_000_000),
-                "timeUnixNano": now,
-                "asInt": str(value),
-            }],
+            "dataPoints": [
+                {
+                    "startTimeUnixNano": str(int(now) - 60_000_000_000),
+                    "timeUnixNano": now,
+                    "asInt": str(value),
+                }
+            ],
             "aggregationTemporality": 2,
             "isMonotonic": True,
         },
@@ -116,8 +120,12 @@ def _generate_metrics(state: NginxState, rng: random.Random) -> list:
     state.tick()
     metrics = [
         _build_cumulative_sum("nginx.requests", "{request}", state.requests),
-        _build_cumulative_sum("nginx.connections_accepted", "{connection}", state.connections_accepted),
-        _build_cumulative_sum("nginx.connections_handled", "{connection}", state.connections_handled),
+        _build_cumulative_sum(
+            "nginx.connections_accepted", "{connection}", state.connections_accepted
+        ),
+        _build_cumulative_sum(
+            "nginx.connections_handled", "{connection}", state.connections_handled
+        ),
     ]
 
     # connections_current is a gauge with state attribute
@@ -128,16 +136,27 @@ def _generate_metrics(state: NginxState, rng: random.Random) -> list:
     if waiting < 0:
         waiting = rng.randint(5, 30)
 
-    for state_name, val in [("active", active), ("reading", reading), ("writing", writing), ("waiting", waiting)]:
-        metrics.append(_build_gauge(
-            "nginx.connections_current", "{connection}", val,
-            attributes={"state": state_name},
-        ))
+    for state_name, val in [
+        ("active", active),
+        ("reading", reading),
+        ("writing", writing),
+        ("waiting", waiting),
+    ]:
+        metrics.append(
+            _build_gauge(
+                "nginx.connections_current",
+                "{connection}",
+                val,
+                attributes={"state": state_name},
+            )
+        )
 
     return metrics
 
 
-def run(client: OTLPClient, stop_event: threading.Event, scenario_data: dict | None = None) -> None:
+def run(
+    client: OTLPClient, stop_event: threading.Event, scenario_data: dict | None = None
+) -> None:
     """Run nginx metrics generator loop until stop_event is set."""
     rng = random.Random()
 
@@ -168,21 +187,28 @@ def run(client: OTLPClient, stop_event: threading.Event, scenario_data: dict | N
     resources = [_build_resource(h) for h in nginx_hosts]
     states = [NginxState(rng) for _ in nginx_hosts]
 
-    logger.info("Nginx metrics generator started (interval=%ds, hosts=%d)",
-                METRICS_INTERVAL, len(nginx_hosts))
+    logger.info(
+        "Nginx metrics generator started (interval=%ds, hosts=%d)",
+        METRICS_INTERVAL,
+        len(nginx_hosts),
+    )
 
     scrape_count = 0
     while not stop_event.is_set():
         resource_metrics = []
         for resource, state in zip(resources, states):
             metrics = _generate_metrics(state, rng)
-            resource_metrics.append({
-                "resource": resource,
-                "scopeMetrics": [{
-                    "scope": {"name": SCOPE_NAME, "version": SCOPE_VERSION},
-                    "metrics": metrics,
-                }],
-            })
+            resource_metrics.append(
+                {
+                    "resource": resource,
+                    "scopeMetrics": [
+                        {
+                            "scope": {"name": SCOPE_NAME, "version": SCOPE_VERSION},
+                            "metrics": metrics,
+                        }
+                    ],
+                }
+            )
 
         payload = {"resourceMetrics": resource_metrics}
         client._send(f"{client.endpoint}/v1/metrics", payload, "nginx-metrics")
@@ -197,7 +223,9 @@ def run(client: OTLPClient, stop_event: threading.Event, scenario_data: dict | N
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
+    )
     client = OTLPClient()
     stop_event = threading.Event()
     signal.signal(signal.SIGINT, lambda *_: stop_event.set())

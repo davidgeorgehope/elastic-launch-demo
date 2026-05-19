@@ -19,6 +19,10 @@ class GamingScenario(BaseScenario):
         return "gaming"
 
     @property
+    def scenario_icon(self) -> str:
+        return "🎮"
+
+    @property
     def scenario_name(self) -> str:
         return "Live Gaming Platform"
 
@@ -33,6 +37,98 @@ class GamingScenario(BaseScenario):
     @property
     def namespace(self) -> str:
         return "gaming"
+
+    @property
+    def sort_order(self) -> int:
+        return 5
+
+    @property
+    def raw_log_profile(self) -> dict[str, Any]:
+        return {
+            "service_name": "game-api-edge",
+            "user_id_prefix": "player",
+            "tier_field": "player_tier",
+            "tier_values": [("f2p", 80), ("plus", 15), ("vip", 5)],
+            "country_weights": {"US": 30, "KR": 15, "JP": 12, "DE": 8, "GB": 8, "BR": 10, "CN": 12, "MX": 5},
+            "methods": ["GET", "POST", "PUT", "DELETE"],
+            "paths": [
+                "/api/v1/match", "/api/v1/leaderboard", "/api/v1/inventory",
+                "/api/v1/store", "/api/v1/friends", "/api/v1/chat",
+                "/login", "/health",
+            ],
+            "change_point_path": "/api/v1/match",
+        }
+
+    @property
+    def executive_kpi_emitter_service_name(self) -> str:
+        return "analytics-pipeline"
+
+    @property
+    def executive_dashboard_intro(self) -> str:
+        return (
+            "**Live gaming KPIs** — player engagement, monetization, community, "
+            "and live-ops health (synthetic `business.*` from `analytics-pipeline`)."
+        )
+
+    @property
+    def executive_kpi_sections(self) -> list[dict]:
+        return [
+            {
+                "header": "**Player engagement** — DAU, sessions, duration, matches, quests, and retention",
+                "specs": [
+                    ("Daily active users", "metrics.business.daily_active_users"),
+                    ("Sessions / min", "metrics.business.sessions_per_min"),
+                    ("Avg session duration (min)", "metrics.business.avg_session_duration_min"),
+                    ("Matches played / min", "metrics.business.matches_played_per_min"),
+                    ("Quests completed / min", "metrics.business.quests_completed_per_min"),
+                    ("Daily retention rate (%)", "metrics.business.daily_retention_rate_pct"),
+                ],
+            },
+            {
+                "header": "**Monetization** — revenue, IAP, battle pass, ARPU, loot, and cosmetics",
+                "specs": [
+                    ("Revenue (USD/min)", "metrics.business.revenue_usd_per_min"),
+                    ("In-app purchases / min", "metrics.business.in_app_purchases_per_min"),
+                    ("Battle pass conversions / min", "metrics.business.battle_pass_conversions_per_min"),
+                    ("Avg revenue per user (USD)", "metrics.business.avg_revenue_per_user_usd"),
+                    ("Loot opens / min", "metrics.business.loot_opens_per_min"),
+                    ("Cosmetic sales (USD/min)", "metrics.business.cosmetic_sales_usd_per_min"),
+                ],
+            },
+            {
+                "header": "**Community** — chat, shares, toxicity, creators, streaming, and signups",
+                "specs": [
+                    ("Chat messages / min", "metrics.business.chat_messages_per_min"),
+                    ("Social clip shares / min", "metrics.business.social_clip_shares_per_min"),
+                    ("Toxic report rate (%)", "metrics.business.toxic_report_rate_pct"),
+                    ("Creator uploads / min", "metrics.business.creator_uploads_per_min"),
+                    ("Streaming viewers", "metrics.business.streaming_viewers"),
+                    ("New registrations / min", "metrics.business.new_registrations_per_min"),
+                ],
+            },
+            {
+                "header": "**Live ops health** — server lag, crashes, bugs, churn, NPS, and moderation",
+                "specs": [
+                    ("Server tick lag (ms)", "metrics.business.server_tick_lag_ms"),
+                    ("Crash rate (%)", "metrics.business.crash_rate_pct"),
+                    ("Bug reports / min", "metrics.business.player_bug_reports_per_min"),
+                    ("Churn risk (0–100)", "metrics.business.churn_risk_index_0_100"),
+                    ("Satisfaction proxy (NPS-like)", "metrics.business.net_satisfaction_proxy_nps"),
+                    ("Moderation queue size", "metrics.business.content_moderation_queue_size"),
+                ],
+            },
+        ]
+
+    @property
+    def executive_trend_charts(self) -> list[dict]:
+        return [
+            {"title": "Daily active users", "field": "metrics.business.daily_active_users", "y_label": "users"},
+            {"title": "Revenue (USD/min)", "field": "metrics.business.revenue_usd_per_min", "y_label": "USD/min"},
+            {"title": "Sessions / min", "field": "metrics.business.sessions_per_min", "y_label": "sessions/min"},
+            {"title": "Matches played / min", "field": "metrics.business.matches_played_per_min", "y_label": "matches/min"},
+            {"title": "In-app purchases / min", "field": "metrics.business.in_app_purchases_per_min", "y_label": "purchases/min"},
+            {"title": "Streaming viewers", "field": "metrics.business.streaming_viewers", "y_label": "viewers"},
+        ]
 
     # ── Services ──────────────────────────────────────────────────────
 
@@ -1311,9 +1407,7 @@ class GamingScenario(BaseScenario):
             font_family="'Inter', system-ui, sans-serif",
             glow_effect=True,
             gradient_accent="linear-gradient(135deg, #a855f7 0%, #ec4899 100%)",
-            dashboard_title="Live Ops Command Center",
             chaos_title="Chaos Engineering Console",
-            landing_title="Live Ops Command Center",
             service_label="Service",
             channel_label="Channel",
         )
