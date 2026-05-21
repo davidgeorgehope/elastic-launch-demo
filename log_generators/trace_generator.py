@@ -714,6 +714,7 @@ def run(client: OTLPClient, stop_event: threading.Event, chaos_controller=None,
                 _host_map[provider] = h["host.name"]
 
     resources = {svc: _build_resource(svc, services=_services, namespace=_namespace, topology=_topology_data, host_map=_host_map) for svc in _services}
+    resources = {svc: _build_resource(svc, services=_services, namespace=_namespace, topology=_topology_data) for svc in _services}
     total_traces = 0
     total_spans = 0
 
