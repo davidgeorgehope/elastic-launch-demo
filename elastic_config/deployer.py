@@ -35,6 +35,7 @@ from elastic_config.deployer_streams import StreamsMixin
 from elastic_config.deployer_views import DataViewsMixin
 from elastic_config.deployer_dashboard import DashboardMixin
 from elastic_config.deployer_alerting import AlertingMixin
+from elastic_config.deployer_synthetics import SyntheticsMixin
 
 logger = logging.getLogger("deployer")
 
@@ -65,6 +66,7 @@ class ScenarioDeployer(
     DataViewsMixin,
     DashboardMixin,
     AlertingMixin,
+    SyntheticsMixin,
 ):
     """Deploys a scenario's full Elastic configuration."""
 
@@ -113,6 +115,7 @@ class ScenarioDeployer(
             DeployStep("Enable APM anomaly detection"), # 16
             DeployStep("Enable logs ML jobs (rate + categorization)"), # 17
             DeployStep("Create SLOs", items_total=3),  # 18
+            DeployStep("Create Synthetics monitors", items_total=5),  # 19
         ])
         _notify = callback or (lambda p: None)
         _notify(self.progress)
@@ -138,6 +141,7 @@ class ScenarioDeployer(
                 self._deploy_apm_anomaly_detection(client, _notify)
                 self._deploy_logs_ml_jobs(client, _notify)
                 self._deploy_slos(client, _notify)
+                self._deploy_synthetics(client, _notify)
         except Exception as exc:
             self.progress.error = str(exc)
             logger.exception("Deployment failed")
@@ -256,6 +260,9 @@ class ScenarioDeployer(
 
         # Delete SLOs
         results["slos_deleted"] = self._cleanup_slos(client)
+
+        # Delete Synthetics monitors
+        results["synthetics_deleted"] = self._cleanup_synthetics(client)
 
         # Delete cases created by workflows
         results["cases_deleted"] = self._cleanup_cases(client, self.ns)

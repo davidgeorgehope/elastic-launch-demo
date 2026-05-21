@@ -1,0 +1,1 @@
+"""FCC communications resilience scenario."""

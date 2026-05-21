@@ -48,6 +48,9 @@ def get_scenario(scenario_id: str) -> BaseScenario:
     return _registry[scenario_id]
 
 
+_HIDDEN_SCENARIOS = {"gaming", "gcp"}
+
+
 def list_scenarios() -> list[dict[str, str]]:
     """Return list of available scenarios with metadata for the selector UI."""
     _discover()
@@ -60,4 +63,5 @@ def list_scenarios() -> list[dict[str, str]]:
             "icon": s.scenario_icon,
         }
         for s in sorted(_registry.values(), key=lambda s: s.sort_order)
+        if s.scenario_id not in _HIDDEN_SCENARIOS
     ]

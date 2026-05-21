@@ -95,11 +95,15 @@ def _build_resource(
     services: dict | None = None,
     namespace: str | None = None,
     topology: dict | None = None,
+    host_map: dict | None = None,
 ) -> dict:
     _services = services or SERVICES
     _namespace = namespace or NAMESPACE
     cfg = _services[service_name]
     language = cfg.get("language", "python")
+    # Resolve to the real scenario host name so APM → Infrastructure pivot works.
+    # host_map is {cloud_provider: host.name}, built from scenario.hosts.
+    _host_name = (host_map or {}).get(cfg.get("cloud_provider", ""), f"{service_name}-host")
     attrs = {
         "service.name": service_name,
         "service.namespace": _namespace,
@@ -113,7 +117,7 @@ def _build_resource(
         "cloud.region": cfg["cloud_region"],
         "cloud.availability_zone": cfg["cloud_availability_zone"],
         "deployment.environment": f"production-{_namespace}",
-        "host.name": f"{service_name}-host",
+        "host.name": _host_name,
         "host.architecture": "amd64",
         "os.type": "linux",
         "data_stream.type": "traces",
@@ -702,6 +706,14 @@ def run(client: OTLPClient, stop_event: threading.Event, chaos_controller=None,
         from log_generators.infra_topology import build_topology as _build_infra_topology
         _topology_data = _build_infra_topology(scenario_data)
 
+    _host_map: dict[str, str] = {}
+    if scenario_data and scenario_data.get("hosts"):
+        for h in scenario_data["hosts"]:
+            provider = h.get("cloud.provider") or h.get("cloud_provider", "")
+            if provider and "host.name" in h:
+                _host_map[provider] = h["host.name"]
+
+    resources = {svc: _build_resource(svc, services=_services, namespace=_namespace, topology=_topology_data, host_map=_host_map) for svc in _services}
     resources = {svc: _build_resource(svc, services=_services, namespace=_namespace, topology=_topology_data) for svc in _services}
     total_traces = 0
     total_spans = 0
