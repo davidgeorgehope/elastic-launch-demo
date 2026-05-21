@@ -31,8 +31,8 @@ _BULK_BATCH_DOCS = 500
 class BackfillMixin:
 
     def _ecs_log_backfill_step_index(self) -> int:
-        """Sub-classes can override if step layout shifts. Default: step 14."""
-        return 14
+        """Sub-classes can override if step layout shifts. Default: step 15."""
+        return 15
 
     def _deploy_ecs_log_backfill(self, client: httpx.Client, notify: ProgressCallback):
         """Bulk-index ~12h of synthetic raw ECS access logs to

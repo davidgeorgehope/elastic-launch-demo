@@ -114,7 +114,7 @@ class StreamsMixin:
         return deleted_ok
 
     def _deploy_significant_events(self, client: httpx.Client, notify: ProgressCallback):
-        step = self._step(10)
+        step = self._step(11)
         step.status = "running"
         notify(self.progress)
 

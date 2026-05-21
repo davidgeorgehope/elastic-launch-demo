@@ -15,7 +15,7 @@ logger = logging.getLogger("deployer")
 class AgentMixin:
 
     def _deploy_tools(self, client: httpx.Client, notify: ProgressCallback):
-        step = self._step(8)
+        step = self._step(9)
         step.status = "running"
         notify(self.progress)
 
@@ -74,7 +74,7 @@ class AgentMixin:
         notify(self.progress)
 
     def _deploy_agent(self, client: httpx.Client, notify: ProgressCallback):
-        step = self._step(9)
+        step = self._step(10)
         step.status = "running"
         notify(self.progress)
 

@@ -157,9 +157,6 @@ class ServiceManager:
         common_args = (self.otlp, self._stop_event)
         common_kwargs = {"scenario_data": scenario_data} if scenario_data else {}
 
-        # Determine which infra generators to start based on scenario services
-        _svc_names = set(scenario_data["services"].keys()) if scenario_data else set()
-
         # Raw access-log generator uses ESBulkClient instead of OTLPClient
         raw_access_args = (self.es_bulk, self._stop_event)
         raw_access_kwargs = {"scenario_data": scenario_data} if scenario_data else {}
@@ -171,13 +168,10 @@ class ServiceManager:
             ("gen-jvm-metrics", run_jvm, common_args, common_kwargs),
             ("gen-vpc-flow", run_vpc, common_args, common_kwargs),
             ("gen-raw-access", run_raw_access, raw_access_args, raw_access_kwargs),
+            ("gen-nginx", run_nginx, common_args, common_kwargs),
+            ("gen-nginx-metrics", run_nginx_metrics, common_args, common_kwargs),
+            ("gen-mysql", run_mysql, common_args, common_kwargs),
         ]
-        # Only start nginx/mysql generators if their service is in the scenario
-        if not _svc_names or "nginx-proxy" in _svc_names:
-            generators.append(("gen-nginx", run_nginx, common_args, common_kwargs))
-            generators.append(("gen-nginx-metrics", run_nginx_metrics, common_args, common_kwargs))
-        if not _svc_names or "mysql-primary" in _svc_names:
-            generators.append(("gen-mysql", run_mysql, common_args, common_kwargs))
         for name, fn, args, kwargs in generators:
             t = threading.Thread(
                 target=fn,

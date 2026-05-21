@@ -159,7 +159,7 @@ def _build_pod_resource(svc: str, pod_data: dict, cluster: dict) -> dict:
         "telemetry.sdk.version": "1.24.0",
         "telemetry.sdk.language": "python",
         "data_stream.type": "metrics",
-        "data_stream.dataset": "kubernetes.container",
+        "data_stream.dataset": "kubeletstatsreceiver",
         "data_stream.namespace": "default",
     }
     return {"attributes": _format_attributes(attrs), "schemaUrl": SCHEMA_URL}
@@ -187,6 +187,9 @@ def _build_node_resource(node_name: str, pod_data: dict, cluster: dict) -> dict:
         "os.type": "linux",
         "os.description": cluster["os_description"],
         "container.id": container_id,
+        "data_stream.type": "metrics",
+        "data_stream.dataset": "k8sclusterreceiver",
+        "data_stream.namespace": "default",
     }
     return {"attributes": _format_attributes(attrs), "schemaUrl": SCHEMA_URL}
 
@@ -201,6 +204,9 @@ def _build_deployment_resource(svc: str, pod_data: dict, cluster: dict) -> dict:
         "cloud.provider": cluster["provider"],
         "cloud.platform": cluster["platform"],
         "container.id": p["container_id"],
+        "data_stream.type": "metrics",
+        "data_stream.dataset": "k8sclusterreceiver",
+        "data_stream.namespace": "default",
     }
     return {"attributes": _format_attributes(attrs), "schemaUrl": SCHEMA_URL}
 
@@ -292,6 +298,9 @@ def _build_daemonset_resource(ds_name: str, cluster: dict) -> dict:
         "k8s.cluster.name": cluster["name"],
         "cloud.provider": cluster["provider"],
         "cloud.platform": cluster["platform"],
+        "data_stream.type": "metrics",
+        "data_stream.dataset": "k8sclusterreceiver",
+        "data_stream.namespace": "default",
     }
     return {"attributes": _format_attributes(attrs), "schemaUrl": SCHEMA_URL}
 
@@ -314,6 +323,9 @@ def _build_statefulset_resource(ss_name: str, cluster: dict) -> dict:
         "k8s.cluster.name": cluster["name"],
         "cloud.provider": cluster["provider"],
         "cloud.platform": cluster["platform"],
+        "data_stream.type": "metrics",
+        "data_stream.dataset": "k8sclusterreceiver",
+        "data_stream.namespace": "default",
     }
     return {"attributes": _format_attributes(attrs), "schemaUrl": SCHEMA_URL}
 
@@ -337,6 +349,9 @@ def _build_replicaset_resource(svc: str, pod_data: dict, cluster: dict) -> dict:
         "k8s.cluster.name": cluster["name"],
         "cloud.provider": cluster["provider"],
         "cloud.platform": cluster["platform"],
+        "data_stream.type": "metrics",
+        "data_stream.dataset": "k8sclusterreceiver",
+        "data_stream.namespace": "default",
     }
     return {"attributes": _format_attributes(attrs), "schemaUrl": SCHEMA_URL}
 
@@ -362,6 +377,9 @@ def _build_pod_phase_resource(svc: str, pod_data: dict, cluster: dict) -> dict:
         "k8s.node.name": p["node_name"],
         "cloud.provider": cluster["provider"],
         "cloud.platform": cluster["platform"],
+        "data_stream.type": "metrics",
+        "data_stream.dataset": "k8sclusterreceiver",
+        "data_stream.namespace": "default",
     }
     return {"attributes": _format_attributes(attrs), "schemaUrl": SCHEMA_URL}
 
@@ -565,12 +583,21 @@ def run(client: OTLPClient, stop_event: threading.Event, scenario_data: dict | N
         all_services.extend(c["services"])
     state = K8sState(rng, services=all_services)
 
-    # Initialize per-cluster pod data
+    # Initialize per-cluster pod data — use shared topology when scenario_data is available
+    # so pod/container IDs match the trace generator (enabling APM Service Map infra correlation)
+    _infra_topology = None
+    if scenario_data:
+        from log_generators.infra_topology import build_topology as _build_infra_topology, to_pod_data as _to_pod_data
+        _infra_topology = _build_infra_topology(scenario_data)
+
     cluster_data = []
     total_services = 0
     total_nodes = 0
     for idx, cluster in enumerate(clusters):
-        pod_data = _init_pod_data(cluster, seed_offset=idx)
+        if _infra_topology is not None:
+            pod_data = _to_pod_data(_infra_topology, cluster)
+        else:
+            pod_data = _init_pod_data(cluster, seed_offset=idx)
         cluster_data.append((cluster, pod_data))
         total_services += len(cluster["services"])
         total_nodes += len(pod_data["node_names"])

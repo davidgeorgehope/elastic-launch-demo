@@ -192,8 +192,10 @@ class OTLPClient:
         event_name: str | None = None,
     ) -> dict[str, Any]:
         """Build a single OTLP log record."""
+        ts = _now_ns()
         record: dict[str, Any] = {
-            "timeUnixNano": _now_ns(),
+            "timeUnixNano": ts,
+            "observedTimeUnixNano": ts,
             "severityText": severity.upper(),
             "severityNumber": SEVERITY_MAP.get(severity.upper(), 9),
             "body": {"stringValue": body},

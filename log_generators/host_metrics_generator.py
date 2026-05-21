@@ -224,9 +224,9 @@ def _build_host_resource(host_cfg: dict) -> dict:
     attrs["telemetry.sdk.name"] = "opentelemetry"
     attrs["telemetry.sdk.version"] = "1.24.0"
     attrs["telemetry.sdk.language"] = "python"
-    # NOTE: Do NOT set data_stream.* attributes here — let the Elastic OTLP
-    # endpoint auto-route based on metric names/scope. This is required for
-    # the Infrastructure UI to recognize these as host metrics.
+    attrs["data_stream.type"] = "metrics"
+    attrs["data_stream.dataset"] = "hostmetricsreceiver"
+    attrs["data_stream.namespace"] = "default"
 
     # Format array attributes specially
     formatted = _format_attributes(attrs)
@@ -825,6 +825,9 @@ def _build_process_resource(host_cfg: dict, proc_state: ProcessState) -> dict:
     attrs["telemetry.sdk.name"] = "opentelemetry"
     attrs["telemetry.sdk.version"] = "1.24.0"
     attrs["telemetry.sdk.language"] = "python"
+    attrs["data_stream.type"] = "metrics"
+    attrs["data_stream.dataset"] = "hostmetricsreceiver"
+    attrs["data_stream.namespace"] = "default"
 
     return {
         "attributes": _format_attributes(attrs),

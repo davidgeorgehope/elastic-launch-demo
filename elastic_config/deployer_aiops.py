@@ -65,7 +65,7 @@ _INDICES_OPTIONS = {
 class AiopsMixin:
 
     def _logs_ml_step_index(self) -> int:
-        return 16
+        return 17
 
     def _deploy_logs_ml_jobs(self, client: httpx.Client, notify: ProgressCallback):
         """Create both Logs UI ML jobs (volume + categorization) and start their

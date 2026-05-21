@@ -125,19 +125,22 @@ USER_AGENTS = [
     "kube-probe/1.28",
 ]
 
-SERVER_NAMES = [f"{NAMESPACE}-proxy-01", f"{NAMESPACE}-proxy-02"]
+SERVER_NAMES = [f"{NAMESPACE}-nginx-01", f"{NAMESPACE}-nginx-02"]
 
 ERROR_MESSAGES = [
-    "upstream timed out (110: Connection timed out) while connecting to upstream",
-    "upstream prematurely closed connection while reading response header from upstream",
-    "connect() failed (111: Connection refused) while connecting to upstream",
-    "no live upstreams while connecting to upstream",
-    "recv() failed (104: Connection reset by peer)",
-    "client intended to send too large body: 10485760 bytes",
-    "access forbidden by rule",
-    "SSL_do_handshake() failed (SSL: error:0A000126:SSL routines::unexpected eof while reading)",
-    'open() "/usr/share/nginx/html/missing" failed (2: No such file or directory)',
-    "upstream sent too big header while reading response header from upstream",
+    ("error", "upstream timed out (110: Connection timed out) while connecting to upstream"),
+    ("error", "upstream prematurely closed connection while reading response header from upstream"),
+    ("error", "connect() failed (111: Connection refused) while connecting to upstream"),
+    ("error", "no live upstreams while connecting to upstream"),
+    ("error", "recv() failed (104: Connection reset by peer)"),
+    ("crit", "SSL_do_handshake() failed (SSL: error:0A000126:SSL routines::unexpected eof while reading)"),
+    ("crit", "client intended to send too large body: 10485760 bytes"),
+    ("warn", "access forbidden by rule"),
+    ("warn", 'open() "/usr/share/nginx/html/missing" failed (2: No such file or directory)'),
+    ("warn", "upstream sent too big header while reading response header from upstream"),
+    ("warn", "could not build optimal types_hash, you should increase either types_hash_max_size or types_hash_bucket_size"),
+    ("notice", "graceful shutdown requested"),
+    ("notice", "signal process started"),
 ]
 
 UPSTREAM_ADDRS = [
@@ -149,89 +152,24 @@ UPSTREAM_ADDRS = [
 ]
 
 
-# ── Resource builders ─────────────────────────────────────────────────────────
-def _build_access_resource() -> dict:
-    return {
-        "attributes": _format_attributes(
-            {
-                "service.name": "nginx-proxy",
-                "service.namespace": NAMESPACE,
-                "service.version": "1.25.4",
-                "service.instance.id": "nginx-proxy-001",
-                "telemetry.sdk.language": "python",
-                "telemetry.sdk.name": "opentelemetry",
-                "telemetry.sdk.version": "1.24.0",
-                "cloud.provider": "gcp",
-                "cloud.platform": "gcp_compute_engine",
-                "cloud.region": "us-central1",
-                "cloud.availability_zone": "us-central1-a",
-                "deployment.environment": f"production-{NAMESPACE}",
-                "host.name": f"{NAMESPACE}-proxy-host",
-                "host.architecture": "amd64",
-                "os.type": "linux",
-                "data_stream.type": "logs",
-                "data_stream.dataset": "nginx.access",
-                "data_stream.namespace": "default",
-            }
-        ),
-        "schemaUrl": SCHEMA_URL,
-    }
-
-
-def _build_error_resource() -> dict:
-    return {
-        "attributes": _format_attributes(
-            {
-                "service.name": "nginx-proxy",
-                "service.namespace": NAMESPACE,
-                "service.version": "1.25.4",
-                "service.instance.id": "nginx-proxy-001",
-                "telemetry.sdk.language": "python",
-                "telemetry.sdk.name": "opentelemetry",
-                "telemetry.sdk.version": "1.24.0",
-                "cloud.provider": "gcp",
-                "cloud.platform": "gcp_compute_engine",
-                "cloud.region": "us-central1",
-                "cloud.availability_zone": "us-central1-a",
-                "deployment.environment": f"production-{NAMESPACE}",
-                "host.name": f"{NAMESPACE}-proxy-host",
-                "host.architecture": "amd64",
-                "os.type": "linux",
-                "data_stream.type": "logs",
-                "data_stream.dataset": "nginx.error",
-                "data_stream.namespace": "default",
-            }
-        ),
-        "schemaUrl": SCHEMA_URL,
-    }
-
-
-def _build_trace_resource() -> dict:
-    return {
-        "attributes": _format_attributes(
-            {
-                "service.name": "nginx-proxy",
-                "service.namespace": NAMESPACE,
-                "service.version": "1.25.4",
-                "service.instance.id": "nginx-proxy-001",
-                "telemetry.sdk.language": "python",
-                "telemetry.sdk.name": "opentelemetry",
-                "telemetry.sdk.version": "1.24.0",
-                "cloud.provider": "gcp",
-                "cloud.platform": "gcp_compute_engine",
-                "cloud.region": "us-central1",
-                "cloud.availability_zone": "us-central1-a",
-                "deployment.environment": f"production-{NAMESPACE}",
-                "host.name": f"{NAMESPACE}-proxy-host",
-                "host.architecture": "amd64",
-                "os.type": "linux",
-                "data_stream.type": "traces",
-                "data_stream.dataset": "generic",
-                "data_stream.namespace": "default",
-            }
-        ),
-        "schemaUrl": SCHEMA_URL,
-    }
+# Two nginx host configs — must match nginx_metrics_generator.py for dashboard
+# "Nginx instance" filter to correlate logs with metrics by host.name.
+NGINX_HOST_CONFIGS = [
+    {
+        "service.instance.id": "nginx-proxy-001",
+        "cloud.provider": "aws",
+        "cloud.platform": "aws_ec2",
+        "cloud.region": "us-east-1",
+        "cloud.availability_zone": "us-east-1a",
+    },
+    {
+        "service.instance.id": "nginx-proxy-002",
+        "cloud.provider": "gcp",
+        "cloud.platform": "gcp_compute_engine",
+        "cloud.region": "us-central1",
+        "cloud.availability_zone": "us-central1-a",
+    },
+]
 
 
 # ── Log record generators ────────────────────────────────────────────────────
@@ -279,13 +217,16 @@ def _generate_access_log(
         f'"{ua}" rt={request_time}'
     )
 
+    ua_name = ua.split("/")[0]
     attrs = {
         "http.request.method": method,
-        "url.path": path,
+        "url.original": path,
         "http.response.status_code": status,
         "http.response.body.bytes": body_bytes,
-        "client.address": client_ip,
+        "source.address": client_ip,
         "user_agent.original": ua,
+        "user_agent.name": ua_name,
+        "http.version": "1.1",
         "server.address": server,
         "url.domain": f"{_ns}.internal",
         "network.protocol.name": "http",
@@ -336,26 +277,31 @@ def _generate_error_log(
     _endpoints = endpoints or ENDPOINTS
     _server_names = server_names or SERVER_NAMES
 
-    error_msg = rng.choice(ERROR_MESSAGES)
+    log_level, error_msg = rng.choice(ERROR_MESSAGES)
     server = rng.choice(_server_names)
     upstream = rng.choice(UPSTREAM_ADDRS)
     client_ip = rng.choice(CLIENT_IPS)
     path = rng.choice(_endpoints)
 
-    body = f'[error] {error_msg}, client: {client_ip}, server: {server}, request: "GET {path} HTTP/1.1", upstream: "http://{upstream}{path}"'
+    body = f'[{log_level}] {error_msg}, client: {client_ip}, server: {server}, request: "GET {path} HTTP/1.1", upstream: "http://{upstream}{path}"'
+
+    severity_map = {"error": "ERROR", "crit": "FATAL", "warn": "WARN", "notice": "INFO"}
+    severity = severity_map.get(log_level, "ERROR")
 
     attrs = {
         "error.message": error_msg,
-        "client.address": client_ip,
+        "source.address": client_ip,
         "server.address": server,
-        "url.path": path,
+        "url.original": path,
         "upstream.address": upstream,
+        "log.level": log_level,
+        "process.pid": rng.randint(10000, 99999),
         "event.category": "web",
         "event.type": "error",
         "event.kind": "event",
     }
 
-    return client.build_log_record(severity="ERROR", body=body, attributes=attrs)
+    return client.build_log_record(severity=severity, body=body, attributes=attrs)
 
 
 # ── Run loop (used by ServiceManager and standalone) ──────────────────────────
@@ -371,7 +317,7 @@ def run(
     else:
         ns = NAMESPACE
 
-    server_names = [f"{ns}-proxy-01", f"{ns}-proxy-02"]
+    server_names = [f"{ns}-nginx-01", f"{ns}-nginx-02"]
     endpoints = [
         "/api/v1/telemetry",
         "/api/v1/health",
@@ -396,23 +342,29 @@ def run(
         "/readyz",
     ]
 
-    def _build_resource_dynamic(dataset: str, data_stream_type: str = "logs") -> dict:
+    # Two nginx host configs matching nginx_metrics_generator.py (same host.name values)
+    nginx_hosts = [
+        {**cfg, "host.name": f"{ns}-nginx-{i + 1:02d}"}
+        for i, cfg in enumerate(NGINX_HOST_CONFIGS)
+    ]
+
+    def _build_host_resource(host_cfg: dict, dataset: str, data_stream_type: str = "logs") -> dict:
         return {
             "attributes": _format_attributes(
                 {
                     "service.name": "nginx-proxy",
                     "service.namespace": ns,
                     "service.version": "1.25.4",
-                    "service.instance.id": "nginx-proxy-001",
+                    "service.instance.id": host_cfg["service.instance.id"],
                     "telemetry.sdk.language": "python",
                     "telemetry.sdk.name": "opentelemetry",
                     "telemetry.sdk.version": "1.24.0",
-                    "cloud.provider": "gcp",
-                    "cloud.platform": "gcp_compute_engine",
-                    "cloud.region": "us-central1",
-                    "cloud.availability_zone": "us-central1-a",
+                    "cloud.provider": host_cfg["cloud.provider"],
+                    "cloud.platform": host_cfg["cloud.platform"],
+                    "cloud.region": host_cfg["cloud.region"],
+                    "cloud.availability_zone": host_cfg["cloud.availability_zone"],
                     "deployment.environment": f"production-{ns}",
-                    "host.name": f"{ns}-proxy-host",
+                    "host.name": host_cfg["host.name"],
                     "host.architecture": "amd64",
                     "os.type": "linux",
                     "data_stream.type": data_stream_type,
@@ -423,9 +375,10 @@ def run(
             "schemaUrl": SCHEMA_URL,
         }
 
-    access_resource = _build_resource_dynamic("nginx.access")
-    error_resource = _build_resource_dynamic("nginx.error")
-    trace_resource = _build_resource_dynamic("generic", "traces")
+    # Two access resources and two error resources — one per nginx instance
+    access_resources = [_build_host_resource(h, "nginx.access") for h in nginx_hosts]
+    error_resources = [_build_host_resource(h, "nginx.error") for h in nginx_hosts]
+    trace_resources = [_build_host_resource(h, "generic", "traces") for h in nginx_hosts]
 
     # Only emit traces if nginx-proxy is in the scenario's services (avoids
     # disconnected Service Map nodes when the scenario doesn't include it).
@@ -447,6 +400,12 @@ def run(
             error_spike_active = True
         elif error_spike_active and rng.random() < 0.5:
             error_spike_active = False
+
+        # Pick a random nginx host for this batch (distributes across instances)
+        host_idx = rng.randint(0, len(nginx_hosts) - 1)
+        access_resource = access_resources[host_idx]
+        error_resource = error_resources[host_idx]
+        trace_resource = trace_resources[host_idx]
 
         # Generate access logs + correlated trace spans
         access_records = []

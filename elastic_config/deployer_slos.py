@@ -15,7 +15,7 @@ class SloMixin:
 
     def _deploy_slos(self, client: httpx.Client, notify: ProgressCallback):
         """Create the three standard SLOs via the Kibana SLO API."""
-        step = self._step(17)
+        step = self._step(18)
         step.status = "running"
         notify(self.progress)
 

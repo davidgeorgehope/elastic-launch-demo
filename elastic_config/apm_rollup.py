@@ -94,6 +94,14 @@ class ApmRollupGenerator:
         self._services = scenario.services
         self._namespace = scenario.namespace
 
+        from log_generators.infra_topology import build_topology as _build_infra_topology
+        self._infra_topology = _build_infra_topology({
+            "hosts": scenario.hosts,
+            "k8s_clusters": scenario.k8s_clusters,
+            "services": scenario.services,
+            "namespace": scenario.namespace,
+        })
+
         self._instrumented = self._identify_instrumented_services()
         self._tx_defs = self._derive_transaction_defs()
         self._sd_edges = self._derive_service_destination_edges()
@@ -306,6 +314,17 @@ class ApmRollupGenerator:
         }
         if lang in _RUNTIME:
             attrs.update(_RUNTIME[lang])
+        entry = self._infra_topology.get(service_name, {})
+        if entry:
+            attrs["host.name"] = entry["host.name"]
+            attrs["service.instance.id"] = entry["_service_instance_id"]
+            if entry.get("_is_k8s"):
+                attrs["container.id"] = entry["container.id"]
+                attrs["k8s.pod.name"] = entry["k8s.pod.name"]
+                attrs["k8s.pod.uid"] = entry["k8s.pod.uid"]
+                attrs["k8s.namespace.name"] = entry["k8s.namespace.name"]
+                attrs["k8s.node.name"] = entry["k8s.node.name"]
+                attrs["k8s.cluster.name"] = entry["k8s.cluster.name"]
         return attrs
 
     def _build_tx_doc(

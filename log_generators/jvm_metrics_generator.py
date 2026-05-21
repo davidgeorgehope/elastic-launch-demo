@@ -92,7 +92,7 @@ def _load_java_services():
     ]
 
 
-def _build_resource(service_name: str, cfg: dict, namespace: str) -> dict:
+def _build_resource(service_name: str, cfg: dict, namespace: str, topology: dict | None = None) -> dict:
     attrs = {
         "service.name": service_name,
         "service.namespace": namespace,
@@ -115,6 +115,13 @@ def _build_resource(service_name: str, cfg: dict, namespace: str) -> dict:
         "data_stream.dataset": "generic.otel",
         "data_stream.namespace": "default",
     }
+    if topology:
+        from log_generators.infra_topology import get_resource_attrs
+        infra = get_resource_attrs(topology, service_name)
+        if infra:
+            attrs.update(infra)
+            entry = topology.get(service_name, {})
+            attrs["service.instance.id"] = entry.get("_service_instance_id", f"{service_name}-001")
     return {"attributes": _format_attributes(attrs), "schemaUrl": SCHEMA_URL}
 
 
@@ -316,7 +323,12 @@ def run(
         )
         return
 
-    resources = {name: _build_resource(name, cfg, ns) for name, cfg in java_services}
+    _topology_data = None
+    if scenario_data:
+        from log_generators.infra_topology import build_topology as _build_infra_topology
+        _topology_data = _build_infra_topology(scenario_data)
+
+    resources = {name: _build_resource(name, cfg, ns, topology=_topology_data) for name, cfg in java_services}
     states = {name: JvmState(rng) for name, _ in java_services}
 
     logger.info(

@@ -12,7 +12,7 @@ from elastic_config.deployer_base import _kibana_headers, _retry_http, ProgressC
 class DataViewsMixin:
 
     def _deploy_data_views(self, client: httpx.Client, notify: ProgressCallback):
-        step = self._step(11)
+        step = self._step(12)
         step.status = "running"
         notify(self.progress)
 

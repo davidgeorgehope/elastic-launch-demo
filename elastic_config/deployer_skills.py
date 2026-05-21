@@ -44,7 +44,7 @@ class SkillsMixin:
         Appends all resolved skill IDs to self._created_skill_ids and
         updates step 8 progress items.
         """
-        step = self._step(8)
+        step = self._step(9)
 
         builtin_ids = self._discover_builtin_skill_ids(client)
         self._created_skill_ids.extend(builtin_ids)

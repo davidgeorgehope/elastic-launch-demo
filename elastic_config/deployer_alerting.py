@@ -26,7 +26,7 @@ class AlertingMixin:
         _workflow_ids: dict[str, str]
 
     def _deploy_alerting(self, client: httpx.Client, notify: ProgressCallback):
-        step = self._step(13)
+        step = self._step(14)
         step.status = "running"
         notify(self.progress)
 
@@ -150,14 +150,17 @@ class AlertingMixin:
                 }],
             }
 
-            resp = client.post(
-                f"{self.kibana_url}/api/alerting/rule",
-                headers=_kibana_headers(self.api_key),
-                json=rule,
+            resp = _retry_http(
+                lambda r=rule: client.post(
+                    f"{self.kibana_url}/api/alerting/rule",
+                    headers=_kibana_headers(self.api_key),
+                    json=r,
+                ),
+                label=f"create alert rule {rule_name}",
             )
-            if resp.status_code < 300:
+            if resp is not None and resp.status_code < 300:
                 step.items_done += 1
-            else:
+            elif resp is not None:
                 logger.warning("Alert rule %s failed: %s", rule_name, resp.text[:200])
             notify(self.progress)
 

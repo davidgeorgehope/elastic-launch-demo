@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 from pathlib import Path
 
 import httpx
@@ -87,22 +88,23 @@ class PlatformMixin:
         except Exception as exc:
             errors.append(f"agent builder ({exc})")
 
-        # 4. Install Elastic product documentation (for AI assistant context)
-        try:
-            resp = client.post(
-                f"{self.kibana_url}/internal/product_doc_base/install",
-                headers=_kibana_headers(self.api_key),
-                json={
-                    "inferenceId": ".elser-2-elasticsearch",
-                    "resourceType": "product_doc",
-                },
-            )
-            if resp.status_code < 300:
-                configured.append("AI docs")
-            else:
-                errors.append(f"AI docs (HTTP {resp.status_code})")
-        except Exception as exc:
-            errors.append(f"AI docs ({exc})")
+        # 4. Install Elastic product documentation (fire-and-forget — the server job is async)
+        kibana_url = self.kibana_url
+        api_key = self.api_key
+
+        def _install_ai_docs():
+            try:
+                with httpx.Client(timeout=180.0, verify=True) as c:
+                    c.post(
+                        f"{kibana_url}/internal/product_doc_base/install",
+                        headers=_kibana_headers(api_key),
+                        json={"inferenceId": ".elser-2-elasticsearch", "resourceType": "product_doc"},
+                    )
+            except Exception:
+                pass
+
+        threading.Thread(target=_install_ai_docs, daemon=True).start()
+        configured.append("AI docs")
 
         # 5. Enable workflows UI
         try:

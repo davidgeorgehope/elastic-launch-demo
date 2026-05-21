@@ -90,7 +90,12 @@ def _gen_span_id() -> str:
     return secrets.token_hex(8)
 
 
-def _build_resource(service_name: str, services: dict | None = None, namespace: str | None = None) -> dict:
+def _build_resource(
+    service_name: str,
+    services: dict | None = None,
+    namespace: str | None = None,
+    topology: dict | None = None,
+) -> dict:
     _services = services or SERVICES
     _namespace = namespace or NAMESPACE
     cfg = _services[service_name]
@@ -115,6 +120,13 @@ def _build_resource(service_name: str, services: dict | None = None, namespace: 
         "data_stream.dataset": "generic",
         "data_stream.namespace": "default",
     }
+    if topology:
+        from log_generators.infra_topology import get_resource_attrs
+        infra = get_resource_attrs(topology, service_name)
+        if infra:
+            attrs.update(infra)
+            entry = topology.get(service_name, {})
+            attrs["service.instance.id"] = entry.get("_service_instance_id", f"{service_name}-001")
     # Add process.runtime attributes so Elastic APM can identify the runtime
     _RUNTIME_ATTRS = {
         "java": {
@@ -685,7 +697,12 @@ def run(client: OTLPClient, stop_event: threading.Event, chaos_controller=None,
     if _db_conn_map:
         logger.info("DB connection map: %s", {svc: list(tables.keys()) for svc, tables in _db_conn_map.items()})
 
-    resources = {svc: _build_resource(svc, services=_services, namespace=_namespace) for svc in _services}
+    _topology_data = None
+    if scenario_data:
+        from log_generators.infra_topology import build_topology as _build_infra_topology
+        _topology_data = _build_infra_topology(scenario_data)
+
+    resources = {svc: _build_resource(svc, services=_services, namespace=_namespace, topology=_topology_data) for svc in _services}
     total_traces = 0
     total_spans = 0
 

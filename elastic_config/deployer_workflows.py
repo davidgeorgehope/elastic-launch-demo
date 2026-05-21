@@ -16,7 +16,7 @@ logger = logging.getLogger("deployer")
 class WorkflowsMixin:
 
     def _deploy_workflows(self, client: httpx.Client, notify: ProgressCallback):
-        step = self._step(6)
+        step = self._step(7)
         step.status = "running"
         notify(self.progress)
 
